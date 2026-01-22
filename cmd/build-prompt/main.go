@@ -294,6 +294,25 @@ func sha256Hex(s string) string {
 }
 
 func main() {
+	fmt.Fprintf(os.Stderr, "DEBUG: os.Args = %v\n", os.Args)
+	fmt.Fprintf(os.Stderr, "DEBUG: len(os.Args) = %d, first arg = %q\n", len(os.Args), os.Args[1])
+	if len(os.Args) >= 2 && os.Args[1] == "doctor" {
+		fmt.Fprintf(os.Stderr, "DEBUG: Entering doctor branch\n")
+		fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+		promptsDir := fs.String("prompts", "prompts", "prompts directory")
+		strict := fs.Bool("strict", false, "treat warnings as errors")
+		jsonOut := fs.Bool("json", false, "output machine-readable JSON")
+		fs.Usage = func() {
+			fmt.Fprintln(os.Stderr, `usage:
+  ppc doctor [--prompts DIR] [--strict] [--json]
+
+Checks module integrity, requires, cycles, and tag/rules sanity.`)
+			fs.PrintDefaults()
+		}
+		_ = fs.Parse(os.Args[2:])
+		os.Exit(runDoctor(*promptsDir, *strict, *jsonOut))
+	}
+
 	var (
 		conservative = flag.Bool("conservative", false, "include traits/conservative")
 		creative     = flag.Bool("creative", false, "include traits/creative")
