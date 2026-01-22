@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 )
@@ -32,7 +31,6 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 	for _, m := range modByID {
 		for _, r := range m.Front.Requires {
 			if _, ok := modByID[r]; !ok {
-				fmt.Fprintf(os.Stderr, "DEBUG: module %q has invalid require %q\n", m.Front.ID, r)
 				errs = append(errs, fmt.Sprintf("requires target not found: %s (referenced by %s)", r, m.Front.ID))
 			}
 		}

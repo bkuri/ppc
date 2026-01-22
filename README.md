@@ -8,17 +8,57 @@ PPC compiles small Markdown behavior modules into a single deterministic prompt 
 go build -o ppc ./cmd/build-prompt
 ```
 
-## Run
+## Subcommands
 
-From repo root:
+PPC uses a subcommand-based CLI:
 
 ```bash
-./ppc --conservative --revisions 1 --contract markdown explore
-./ppc --conservative --revisions 1 --contract code --explain ship
-./ppc --creative --out AGENTS.md explore
+ppc <subcommand> [flags]
 ```
 
-**Important**: Flags must come before the mode argument.
+### Mode Subcommands
+
+Generate prompts for specific modes:
+
+```bash
+./ppc explore --conservative --revisions 1 --contract markdown
+./ppc build --conservative --revisions 1 --contract code --explain
+./ppc ship --creative --out AGENTS.md --hash
+```
+
+### Doctor Subcommand
+
+Validate module structure and dependencies:
+
+```bash
+./ppc doctor --strict
+./ppc doctor --json
+./ppc doctor --prompts custom/
+```
+
+### Global Flags
+
+```bash
+./ppc --list        # List all available modules
+./ppc --help        # Show help
+```
+
+### Flags Per Subcommand
+
+Each mode subcommand supports:
+
+```
+--conservative          Include conservative trait (boring, stable)
+--creative              Include creative trait (novelty encouraged)
+--terse                 Include terse trait (brief, concise)
+--verbose               Include verbose trait (detailed, expansive)
+--revisions N           Enable policies/revisions with budget N
+--contract TYPE         Output contract: code|markdown (default: markdown)
+--out PATH              Write output to file (default: stdout)
+--explain               Print resolution details to stderr
+--hash                  Prepend SHA256 prompt-id header
+--prompts DIR           Prompts directory (default: prompts)
+```
 
 ## Layout
 

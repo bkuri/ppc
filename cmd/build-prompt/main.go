@@ -1,16 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -293,181 +290,254 @@ func sha256Hex(s string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func main() {
-	fmt.Fprintf(os.Stderr, "DEBUG: os.Args = %v\n", os.Args)
-	fmt.Fprintf(os.Stderr, "DEBUG: len(os.Args) = %d, first arg = %q\n", len(os.Args), os.Args[1])
-	if len(os.Args) >= 2 && os.Args[1] == "doctor" {
-		fmt.Fprintf(os.Stderr, "DEBUG: Entering doctor branch\n")
-		fs := flag.NewFlagSet("doctor", flag.ExitOnError)
-		promptsDir := fs.String("prompts", "prompts", "prompts directory")
-		strict := fs.Bool("strict", false, "treat warnings as errors")
-		jsonOut := fs.Bool("json", false, "output machine-readable JSON")
-		fs.Usage = func() {
-			fmt.Fprintln(os.Stderr, `usage:
-  ppc doctor [--prompts DIR] [--strict] [--json]
+func runExplore(args []string, promptsDir string) {
+	fs := flag.NewFlagSet("explore", flag.ExitOnError)
 
-Checks module integrity, requires, cycles, and tag/rules sanity.`)
-			fs.PrintDefaults()
-		}
-		_ = fs.Parse(os.Args[2:])
-		os.Exit(runDoctor(*promptsDir, *strict, *jsonOut))
-	}
+	conservative := fs.Bool("conservative", false, "include traits/conservative")
+	creative := fs.Bool("creative", false, "include traits/creative")
+	terse := fs.Bool("terse", false, "include traits/terse")
+	verbose := fs.Bool("verbose", false, "include traits/verbose")
+	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
+	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	outPath := fs.String("out", "", "write output to file")
+	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
+	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
+	proDir := fs.String("prompts", promptsDir, "prompts directory")
 
-	var (
-		conservative = flag.Bool("conservative", false, "include traits/conservative")
-		creative     = flag.Bool("creative", false, "include traits/creative")
-		terse        = flag.Bool("terse", false, "include traits/terse")
-		verbose      = flag.Bool("verbose", false, "include traits/verbose")
-		revisions    = flag.Int("revisions", -1, "revision budget (enables policies/revisions)")
-		contract     = flag.String("contract", "markdown", "contract module (code|markdown)")
-		promptsDir   = flag.String("prompts", "prompts", "prompts directory")
-		outPath      = flag.String("out", "", "write output to file")
-		list         = flag.Bool("list", false, "list available modules")
-		explain      = flag.Bool("explain", false, "explain resolution steps to stderr")
-		withHash     = flag.Bool("hash", false, "prepend prompt-id hash header")
-	)
-
-	flag.Usage = func() {
+	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, `usage:
-  ppc [flags] <mode>
+  ppc explore [flags]
 
-modes:
-  explore | build | ship  (loads prompts/modes/<mode>.md)
-
-examples:
-  ppc --conservative --revisions 1 --contract markdown explore
-  ppc --conservative --revisions 1 --contract code --explain ship
-  ppc --creative --out AGENTS.md explore
+Explore mode generates a prompt for exploration tasks.
 
 flags:`)
-		flag.PrintDefaults()
+		fs.PrintDefaults()
 	}
 
-	flag.Parse()
-	args := flag.Args()
+	fs.Parse(args)
 
-	modByID := loadModules(*promptsDir)
-
-	if *list {
-		var ids []string
-		for id := range modByID {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		for _, id := range ids {
-			m := modByID[id]
-			desc := strings.TrimSpace(m.Front.Desc)
-			if desc == "" {
-				desc = "(no desc)"
-			}
-			fmt.Printf("%-22s  %s\n", id, desc)
-		}
-		return
+	opts := CompileOptions{
+		Conservative: *conservative,
+		Creative:     *creative,
+		Terse:        *terse,
+		Verbose:      *verbose,
+		Revisions:    *revisions,
+		Contract:     *contract,
+		PromptsDir:   *proDir,
+		Explain:      *explain,
+		WithHash:     *withHash,
 	}
 
-	if len(args) < 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
-	mode := args[0]
-
-	selectedIDs := []string{"base", "modes/" + mode, "contracts/" + *contract}
-	if *conservative {
-		selectedIDs = append(selectedIDs, "traits/conservative")
-	}
-	if *creative {
-		selectedIDs = append(selectedIDs, "traits/creative")
-	}
-	if *terse {
-		selectedIDs = append(selectedIDs, "traits/terse")
-	}
-	if *verbose {
-		selectedIDs = append(selectedIDs, "traits/verbose")
-	}
-	if *revisions >= 0 {
-		selectedIDs = append(selectedIDs, "policies/revisions")
-	}
-
-	rules := loadRules(*promptsDir)
-
-	closureIDs, fromReq, err := expandRequires(selectedIDs, modByID)
+	result, err := compilePrompt("explore", opts)
 	if err != nil {
 		dief("%v", err)
 	}
 
-	var mods []*Module
-	for _, id := range closureIDs {
-		m := modByID[id]
-		m.FromReq = fromReq[id]
-		m.Selected = inSlice(selectedIDs, id)
-		mods = append(mods, m)
-	}
-
-	if err := validateExclusiveGroups(rules, mods); err != nil {
-		dief("%v", err)
-	}
-
-	sort.Slice(mods, func(i, j int) bool {
-		a, b := mods[i], mods[j]
-		if a.Layer != b.Layer {
-			return a.Layer < b.Layer
-		}
-		if a.Front.Priority != b.Front.Priority {
-			return a.Front.Priority < b.Front.Priority
-		}
-		return a.Front.ID < b.Front.ID
-	})
-
-	vars := map[string]string{"mode": mode}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
-	}
-
-	out := render(mods, vars)
-	if *withHash {
-		h := sha256Hex(out)
-		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", h, out)
-	}
-
-	if *explain {
-		var buf bytes.Buffer
-		buf.WriteString("PPC explain\n")
-
-		buf.WriteString("Selected IDs:\n")
-		sel := append([]string{}, selectedIDs...)
-		sort.Strings(sel)
-		for _, id := range sel {
-			buf.WriteString("  - " + id + "\n")
-		}
-
-		buf.WriteString("Closure IDs (after requires):\n")
-		cls := append([]string{}, closureIDs...)
-		sort.Strings(cls)
-		for _, id := range cls {
-			note := ""
-			if fromReq[id] && !inSlice(selectedIDs, id) {
-				note = " (required)"
-			}
-			buf.WriteString("  - " + id + note + "\n")
-		}
-
-		buf.WriteString("Final order:\n")
-		for _, m := range mods {
-			note := ""
-			if m.FromReq && !m.Selected {
-				note = " (required)"
-			}
-			buf.WriteString(fmt.Sprintf("  - [%d] %s prio=%d%s\n", m.Layer, m.Front.ID, m.Front.Priority, note))
-		}
-
-		io.Copy(os.Stderr, &buf)
-	}
-
 	if *outPath != "" {
-		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
+		if err := os.WriteFile(*outPath, []byte(result.Output), 0o644); err != nil {
 			dief("failed to write %s: %v", *outPath, err)
 		}
 	}
 
-	fmt.Print(out)
+	fmt.Print(result.Output)
+}
+
+func runBuild(args []string, promptsDir string) {
+	fs := flag.NewFlagSet("build", flag.ExitOnError)
+
+	conservative := fs.Bool("conservative", false, "include traits/conservative")
+	creative := fs.Bool("creative", false, "include traits/creative")
+	terse := fs.Bool("terse", false, "include traits/terse")
+	verbose := fs.Bool("verbose", false, "include traits/verbose")
+	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
+	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	outPath := fs.String("out", "", "write output to file")
+	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
+	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
+	proDir := fs.String("prompts", promptsDir, "prompts directory")
+
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, `usage:
+  ppc build [flags]
+
+Build mode generates a prompt for building/implementing features.
+
+flags:`)
+		fs.PrintDefaults()
+	}
+
+	fs.Parse(args)
+
+	opts := CompileOptions{
+		Conservative: *conservative,
+		Creative:     *creative,
+		Terse:        *terse,
+		Verbose:      *verbose,
+		Revisions:    *revisions,
+		Contract:     *contract,
+		PromptsDir:   *proDir,
+		Explain:      *explain,
+		WithHash:     *withHash,
+	}
+
+	result, err := compilePrompt("build", opts)
+	if err != nil {
+		dief("%v", err)
+	}
+
+	if *outPath != "" {
+		if err := os.WriteFile(*outPath, []byte(result.Output), 0o644); err != nil {
+			dief("failed to write %s: %v", *outPath, err)
+		}
+	}
+
+	fmt.Print(result.Output)
+}
+
+func runShip(args []string, promptsDir string) {
+	fs := flag.NewFlagSet("ship", flag.ExitOnError)
+
+	conservative := fs.Bool("conservative", false, "include traits/conservative")
+	creative := fs.Bool("creative", false, "include traits/creative")
+	terse := fs.Bool("terse", false, "include traits/terse")
+	verbose := fs.Bool("verbose", false, "include traits/verbose")
+	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
+	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	outPath := fs.String("out", "", "write output to file")
+	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
+	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
+	proDir := fs.String("prompts", promptsDir, "prompts directory")
+
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, `usage:
+  ppc ship [flags]
+
+Ship mode generates a prompt for release/deployment tasks.
+
+flags:`)
+		fs.PrintDefaults()
+	}
+
+	fs.Parse(args)
+
+	opts := CompileOptions{
+		Conservative: *conservative,
+		Creative:     *creative,
+		Terse:        *terse,
+		Verbose:      *verbose,
+		Revisions:    *revisions,
+		Contract:     *contract,
+		PromptsDir:   *proDir,
+		Explain:      *explain,
+		WithHash:     *withHash,
+	}
+
+	result, err := compilePrompt("ship", opts)
+	if err != nil {
+		dief("%v", err)
+	}
+
+	if *outPath != "" {
+		if err := os.WriteFile(*outPath, []byte(result.Output), 0o644); err != nil {
+			dief("failed to write %s: %v", *outPath, err)
+		}
+	}
+
+	fmt.Print(result.Output)
+}
+
+func printGlobalUsage() {
+	fmt.Fprintln(os.Stderr, `usage:
+  ppc <subcommand> [flags]
+
+subcommands:
+  explore    Generate prompt for exploration mode
+  build      Generate prompt for build mode
+  ship       Generate prompt for shipping mode
+  doctor     Validate module structure and dependencies
+
+global flags:
+  --list     List all available modules
+  --help     Show this help message
+
+examples:
+  ppc explore --conservative --revisions 1 --contract markdown
+  ppc build --conservative --revisions 1 --contract code --explain
+  ppc ship --creative --out AGENTS.md --hash
+  ppc doctor --strict --json
+
+run 'ppc <subcommand> --help' for subcommand-specific options`)
+}
+
+func handleListModules(promptsDir string) {
+	modByID := loadModules(promptsDir)
+	var ids []string
+	for id := range modByID {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		m := modByID[id]
+		desc := strings.TrimSpace(m.Front.Desc)
+		if desc == "" {
+			desc = "(no desc)"
+		}
+		fmt.Printf("%-22s  %s\n", id, desc)
+	}
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		printGlobalUsage()
+		os.Exit(1)
+	}
+
+	subcommand := os.Args[1]
+	args := os.Args[2:]
+
+	// Default prompts directory
+	promptsDir := "prompts"
+
+	// Handle global meta-flags first
+	if subcommand == "--list" {
+		handleListModules(promptsDir)
+		os.Exit(0)
+	}
+
+	if subcommand == "--help" || subcommand == "-h" || subcommand == "help" {
+		printGlobalUsage()
+		os.Exit(0)
+	}
+
+	// Dispatch to subcommand
+	switch subcommand {
+	case "explore":
+		runExplore(args, promptsDir)
+	case "build":
+		runBuild(args, promptsDir)
+	case "ship":
+		runShip(args, promptsDir)
+	case "doctor":
+		// Doctor has special flag parsing
+		fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+		strict := fs.Bool("strict", false, "treat warnings as errors")
+		jsonOut := fs.Bool("json", false, "output machine-readable JSON")
+		proDir := fs.String("prompts", promptsDir, "prompts directory")
+		fs.Usage = func() {
+			fmt.Fprintln(os.Stderr, `usage:
+  ppc doctor [flags]
+
+Checks module integrity, requires, cycles, and tag/rules sanity.
+
+flags:`)
+			fs.PrintDefaults()
+		}
+		fs.Parse(args)
+		os.Exit(runDoctor(*proDir, *strict, *jsonOut))
+
+	default:
+		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcommand)
+		printGlobalUsage()
+		os.Exit(1)
+	}
 }

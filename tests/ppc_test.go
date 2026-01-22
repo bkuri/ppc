@@ -8,11 +8,11 @@ import (
 )
 
 func TestBasicCompile(t *testing.T) {
-	cmd := exec.Command("./build-prompt",
+	cmd := exec.Command("./ppc",
+		"explore",
 		"--conservative",
 		"--revisions", "1",
 		"--contract", "markdown",
-		"explore",
 	)
 	cmd.Dir = ".."
 	var out bytes.Buffer
