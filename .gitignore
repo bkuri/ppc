@@ -1,0 +1,7 @@
+/build-prompt
+/tmp
+*.test
+*.out
+.DS_Store
+/ppc
+/build-prompt-stripped

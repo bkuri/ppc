@@ -1,0 +1,2 @@
+MODE=explore
+FLAGS=--conservative --revisions 1 --contract markdown
