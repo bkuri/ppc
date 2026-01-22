@@ -1,22 +1,42 @@
-package main
+// Package doctor provides module validation
+package doctor
 
 import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/bkuri/ppc/internal/loader"
+	"github.com/bkuri/ppc/internal/resolver"
 )
 
-func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
-	modByID := loadModules(promptsDir)
-	rules := loadRules(promptsDir)
+// RunDoctor validates module structure and dependencies
+// Returns exit code: 0=ok, 2=failed
+func RunDoctor(promptsDir string, strict bool, jsonOut bool) int {
+	modByID, err := loader.LoadModules(promptsDir)
+	if err != nil {
+		fmt.Println("doctor: FAILED")
+		fmt.Println("errors:")
+		fmt.Printf("  - %v\n", err)
+		return 2
+	}
+
+	rules, err := loader.LoadRules(promptsDir)
+	if err != nil {
+		fmt.Println("doctor: FAILED")
+		fmt.Println("errors:")
+		fmt.Printf("  - %v\n", err)
+		return 2
+	}
 
 	var errs []string
 	var warns []string
 
+	// Validate tag format
 	groupVals := map[string]map[string]bool{}
 	for _, m := range modByID {
 		for _, t := range m.Front.Tags {
-			g, v, ok := parseKeyedTag(t)
+			g, v, ok := resolver.ParseKeyedTag(t)
 			if !ok {
 				errs = append(errs, fmt.Sprintf("module %s has invalid tag %q (expected group:value)", m.Front.ID, t))
 				continue
@@ -28,6 +48,7 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		}
 	}
 
+	// Validate requires targets exist
 	for _, m := range modByID {
 		for _, r := range m.Front.Requires {
 			if _, ok := modByID[r]; !ok {
@@ -36,6 +57,7 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		}
 	}
 
+	// Check for circular dependencies
 	const (
 		unvisited = 0
 		visiting  = 1
@@ -88,6 +110,7 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		}
 	}
 
+	// Validate exclusive groups
 	if len(rules.ExclusiveGroups) == 0 {
 		warns = append(warns, "rules.yml: exclusive_groups is empty")
 	}
@@ -97,6 +120,7 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		}
 	}
 
+	// Check for unreachable modules
 	entry := map[string]bool{"base": true}
 	for id := range modByID {
 		if strings.HasPrefix(id, "modes/") || strings.HasPrefix(id, "contracts/") {
@@ -144,6 +168,7 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		warns = append(warns, fmt.Sprintf("unreachable modules (%d): %s", len(dead), strings.Join(dead, ", ")))
 	}
 
+	// Output results
 	if jsonOut {
 		return printDoctorJSON(len(modByID), errs, warns, strict)
 	}
