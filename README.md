@@ -1,8 +1,26 @@
 # PPC — Prompt Policy Compiler (v0.2.0)
 
- PPC compiles small Markdown behavior modules into a single deterministic prompt (stdout-first).
+PPC compiles small Markdown behavior modules into a single deterministic prompt (stdout-first).
 
- ## Installation
+**New to PPC?** Start with [Examples](#examples) below to see real-world use cases.
+
+## Quick Start
+
+```bash
+# Install
+go install github.com/bkuri/ppc/cmd/build-prompt@v0.2.0
+
+# Compile a prompt
+ppc explore --creative --out my-prompt.md
+
+# Validate your prompt repository
+ppc doctor --strict
+
+# See available modules
+ppc --list
+```
+
+## Installation
 
 ### Method 1: Download from Releases (Recommended)
 
@@ -96,13 +114,25 @@ go build -o ppc ./cmd/build-prompt
 
 If you want to understand PPC quickly, start here:
 
-- `examples/01-basic-prompt`
-- `examples/02-team-style-guide`
-- `examples/03-knowledge-sharing-policy`
+All examples are complete, runnable prompt-policy repositories that increase in complexity.
 
-Each example is a complete, runnable prompt-policy repository.
+| # | Name | Complexity | What You'll Learn |
+|---|------|-----------|-------------------|
+| 01 | [Basic Prompt Composition](examples/01-basic-prompt) | ⭐ | Modular composition, deterministic ordering |
+| 02 | [Team Style Guide](examples/02-team-style-guide) | ⭐⭐ | Policy enforcement, exclusive groups |
+| 03 | [Knowledge Sharing Policy](examples/03-knowledge-sharing-policy) | ⭐⭐⭐ | Process governance, traceability |
+| 04 | [Product PRD Review](examples/04-product-prd-review) | ⭐⭐⭐⭐ | Multi-stage workflows, variable substitution |
+| 05 | [RAG Governance](examples/05-rag-governance-policy) | ⭐⭐⭐⭐⭐ | Enterprise governance, multiple exclusive groups |
 
-They increase in complexity and mirror real-world use cases.
+Each example includes a README explaining the problem it solves and how to run it.
+
+To try an example:
+
+```bash
+cd examples/01-basic-prompt
+ppc doctor                    # Validate structure
+ppc explore --profile explore-creative | head -20
+```
 
 ## Subcommands
 
@@ -166,7 +196,28 @@ Each mode subcommand supports:
 - Deterministic output: same inputs -> same output.
 - Fails loudly on: missing modules, tag conflicts, circular requires.
 
+## Documentation
+
+- **[PRD.md](PRD.md)** — Product requirements and design principles
+- **[ROADMAP.md](ROADMAP.md)** — Long-term vision and planned features
+- **[CHANGELOG.md](CHANGELOG.md)** — Version history and changes
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to contribute
+- **[docs/github-actions.md](docs/github-actions.md)** — CI/CD setup
+- **[docs/verification.md](docs/verification.md)** — Checksum verification
+
+## Support & Community
+
+- **Found a bug?** [Open an issue](https://github.com/bkuri/ppc/issues)
+- **Have a question?** [Start a discussion](https://github.com/bkuri/ppc/discussions)
+- **Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Code of Conduct** — See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
 ## CI Integration
 
-See [docs/github-actions.md](docs/github-actions.md) for a ready-to-use
-GitHub Actions workflow that lints prompt policy repositories.
+This repository includes automated workflows:
+
+- **[lint.yml](.github/workflows/lint.yml)** — Tests and code quality
+- **[validate-examples.yml](.github/workflows/validate-examples.yml)** — Example validation
+- **[release.yml](.github/workflows/release.yml)** — Automated releases
+
+See [docs/github-actions.md](docs/github-actions.md) for integration into your own repository.

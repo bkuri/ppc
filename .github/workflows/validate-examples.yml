@@ -1,0 +1,58 @@
+name: Validate Examples
+
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Build PPC binary
+        run: go build -o ppc ./cmd/build-prompt
+
+      - name: Validate Example 01
+        run: |
+          cd examples/01-basic-prompt
+          ../../ppc doctor
+          ../../ppc explore --profile explore-creative | head -20
+          ../../ppc explore --profile explore-conservative | head -20
+
+      - name: Validate Example 02
+        run: |
+          cd examples/02-team-style-guide
+          ../../ppc doctor
+          ../../ppc explore --profile default | head -20
+          ../../ppc explore --profile design-reviews | head -20
+
+      - name: Validate Example 03
+        run: |
+          cd examples/03-knowledge-sharing-policy
+          ../../ppc doctor
+          ../../ppc explore --profile knowledge-sharing | head -20
+
+      - name: Validate Example 04
+        run: |
+          cd examples/04-product-prd-review
+          ../../ppc doctor
+          ../../ppc explore --profile explore | grep -E "NewFeature|Developers|low"
+          ../../ppc explore --profile ship | grep -E "ProductionRelease|Customers|high"
+
+      - name: Validate Example 05
+        run: |
+          cd examples/05-rag-governance-policy
+          ../../ppc doctor
+          ../../ppc explore --profile internal | grep -i "internal"
+          ../../ppc explore --profile client-facing | grep -i "client-facing"
+
+      - name: Summary
+        run: |
+          echo "✓ All 5 examples validated successfully"
+          echo "✓ All profiles compile without errors"
+          echo "✓ Variable substitution verified"
