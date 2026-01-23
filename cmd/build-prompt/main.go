@@ -9,7 +9,7 @@ import (
 
 	"github.com/bkuri/ppc/internal/compile"
 	"github.com/bkuri/ppc/internal/doctor"
-	"github.com/bkuri/ppc/internal/loader"
+	profilepkg "github.com/bkuri/ppc/internal/profile"
 )
 
 // dief prints error to stderr and exits
@@ -63,6 +63,7 @@ func explainOutput(meta compile.CompileMeta) {
 func runExplore(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("explore", flag.ExitOnError)
 
+	profile := fs.String("profile", "", "load preset configuration (e.g., ship)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
@@ -86,19 +87,44 @@ flags:`)
 
 	fs.Parse(args)
 
-	traits := buildTraits(*conservative, *creative, *terse, *verbose)
+	var opts *compile.CompileOptions
+	var err error
 
-	vars := map[string]string{"mode": "explore"}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
-	}
+	if *profile != "" {
+		prof, err := profile.LoadProfile(*profile)
+		if err != nil {
+			dief("profile error: %v", err)
+		}
 
-	opts := compile.CompileOptions{
-		Mode:       "explore",
-		Contract:   *contract,
-		Traits:     traits,
-		PromptsDir: *proDir,
-		Vars:       vars,
+		mergeOpts := profile.MergeOptions{
+			Conservative: toBoolPtr(*conservative),
+			Creative:     toBoolPtr(*creative),
+			Terse:        toBoolPtr(*terse),
+			Verbose:      toBoolPtr(*verbose),
+			Revisions:    toIntPtr(*revisions),
+			Contract:     toStringPtr(*contract),
+		}
+
+		opts, err = profile.Merge(prof, mergeOpts)
+		if err != nil {
+			dief("merge error: %v", err)
+		}
+		opts.PromptsDir = *proDir
+	} else {
+		traits := buildTraits(*conservative, *creative, *terse, *verbose)
+
+		vars := map[string]string{"mode": "explore"}
+		if *revisions >= 0 {
+			vars["revisions"] = strconv.Itoa(*revisions)
+		}
+
+		opts = &compile.CompileOptions{
+			Mode:       "explore",
+			Contract:   *contract,
+			Traits:     traits,
+			PromptsDir: *proDir,
+			Vars:       vars,
+		}
 	}
 
 	out, meta, err := compile.Compile(opts)

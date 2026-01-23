@@ -1,0 +1,7 @@
+mode: ship
+contract: code
+revisions: 1
+traits:
+  - traits/conservative
+  - traits/terse
+vars: {}
