@@ -22,6 +22,7 @@ func ListMarkdownFiles(root string) []string {
 		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			out = append(out, p)
 		}
+		return nil
 	})
 	sort.Strings(out)
 	return out
@@ -54,7 +55,7 @@ func LoadModules(promptsDir string) (map[string]*model.Module, interface{}) {
 			Body:  body,
 		}
 		if _, exists := modByID[fm.ID]; exists {
-			return nil, errtypes.NewAtLine(p, fm.ID, "module", fmt.Sprintf("duplicate module id %q", fm.ID))
+			return nil, errtypes.New(p, fm.ID, fmt.Sprintf("duplicate module id %q", fm.ID))
 		}
 		modByID[fm.ID] = m
 	}

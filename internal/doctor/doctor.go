@@ -12,9 +12,14 @@ import (
 
 // RunDoctor validates module structure and dependencies
 // Returns exit code: 0=ok, 2=failed
-func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
-	return doctor.RunDoctor(promptsDir, strict, jsonOut, false)
-}
+func RunDoctor(promptsDir string, strict bool, jsonOut bool, statsRequested bool) int {
+	modByID, err := loader.LoadModules(promptsDir)
+	if err != nil {
+		fmt.Println("doctor: FAILED")
+		fmt.Println("errors:")
+		fmt.Printf("  - %v\n", err)
+		return 2
+	}
 
 	rules, err := loader.LoadRules(promptsDir)
 	if err != nil {
@@ -163,9 +168,15 @@ func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
 		warns = append(warns, fmt.Sprintf("unreachable modules (%d): %s", len(dead), strings.Join(dead, ", ")))
 	}
 
+	// Calculate statistics if requested
+	var stats *DoctorStats
+	if statsRequested {
+		stats = calculateStats(modByID, rules, reachable)
+	}
+
 	// Output results
 	if jsonOut {
-		return printDoctorJSON(len(modByID), errs, warns, strict)
+		return printDoctorJSON(len(modByID), errs, warns, strict, stats)
 	}
 
 	if len(errs) == 0 {

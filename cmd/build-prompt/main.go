@@ -73,7 +73,6 @@ func runExplore(args []string, promptsDir string) {
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
 	proDir := fs.String("prompts", promptsDir, "prompts directory")
-	stats := fs.Bool("stats", false, "output stats with doctor results")
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, `usage:
@@ -113,14 +112,6 @@ flags:`)
 
 	if *explain {
 		explainOutput(meta)
-	}
-
-	if *stats {
-		fmt.Println("stats:")
-		fmt.Printf("  Modules: %d\n", len(modByID))
-		fmt.Printf("  Unreachable: %d\n", unreachable)
-		fmt.Printf("  Tags: %d\n", len(tagValues))
-		fmt.Printf("  Groups: %d\n", len(groupValues))
 	}
 
 	if *outPath != "" {
@@ -335,6 +326,7 @@ func main() {
 		fs := flag.NewFlagSet("doctor", flag.ExitOnError)
 		strict := fs.Bool("strict", false, "treat warnings as errors")
 		jsonOut := fs.Bool("json", false, "output machine-readable JSON")
+		withStats := fs.Bool("stats", false, "include module statistics in JSON output")
 		proDir := fs.String("prompts", promptsDir, "prompts directory")
 		fs.Usage = func() {
 			fmt.Fprintln(os.Stderr, `usage:
@@ -346,7 +338,7 @@ flags:`)
 			fs.PrintDefaults()
 		}
 		fs.Parse(args)
-		os.Exit(doctor.RunDoctor(*proDir, *strict, *jsonOut))
+		os.Exit(doctor.RunDoctor(*proDir, *strict, *jsonOut, *withStats))
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcommand)

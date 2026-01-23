@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bkuri/ppc/internal/loader"
 	"github.com/bkuri/ppc/internal/model"
 	"github.com/bkuri/ppc/internal/resolver"
 )
@@ -20,85 +19,13 @@ type DoctorStats struct {
 	Orphaned    int            `json:"orphaned"`
 }
 
-// printDoctorJSON outputs doctor results as JSON
-// Returns exit code: 0=ok, 2=failed
-func printDoctorJSON(moduleCount int, errs, warns []string, strict bool, statsRequested bool) int {
-	status := "ok"
-	exitCode := 0
-
-	if len(errs) > 0 {
-		status = "failed"
-		exitCode = 2
-	} else if strict && len(warns) > 0 {
-		status = "failed"
-		exitCode = 2
-	}
-
-	// Calculate statistics if requested
-	var stats *DoctorStats
-	if statsRequested {
-		// Calculate by layer
-		byLayer := map[string]int{"base": 0, "modes": 0, "traits": 0, "policies": 0, "contracts": 0}
-		for _, m := range modByID {
-			if _, ok := entry[m]; ok {
-				byLayer[layerFromID(m.Layer)]++
-			}
-		}
-
-		// Count unique tags
-		tagValues := map[string]bool{}
-		for _, m := range modByID {
-			for _, t := range m.Front.Tags {
-				if g, v, ok := parseKeyedTag(t); ok {
-					tagValues[g+v] = true
-				}
-			}
-		}
-
-		// Count unreachable
-		unreachable := 0
-		for id := range modByID {
-			if !reachable[id] {
-				unreachable++
-			}
-		}
-
-		// Count orphaned requirements (requirements non-existent)
-		orphaned := 0
-		for _, m := range modByID {
-			for _, r := range m.Front.Requires {
-				if _, ok := modByID[r]; !ok {
-					orphaned++
-				}
-			}
-		}
-
-		stats = &DoctorStats{
-			Modules:     moduleCount,
-			ByLayer:     byLayer,
-			Unreachable: unreachable,
-			Tags:        len(tagValues),
-			Groups:      len(rules.ExclusiveGroups),
-			Orphaned:    orphaned,
-		}
-	}
-
-	report := DoctorReport{
-		Status:   status,
-		Modules:  moduleCount,
-		Errors:   errs,
-		Warnings: warns,
-		Stats:    stats,
-	}
-
-	b, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", err)
-		return 2
-	}
-
-	fmt.Println(string(b))
-	return exitCode
+// DoctorReport represents the complete doctor report
+type DoctorReport struct {
+	Status   string       `json:"status"`
+	Modules  int          `json:"modules"`
+	Errors   []string     `json:"errors,omitempty"`
+	Warnings []string     `json:"warnings,omitempty"`
+	Stats    *DoctorStats `json:"stats,omitempty"`
 }
 
 // printDoctorJSON outputs doctor results as JSON
@@ -133,65 +60,63 @@ func printDoctorJSON(moduleCount int, errs, warns []string, strict bool, stats *
 	return exitCode
 }
 
-// printDoctorJSON outputs doctor results as JSON
-// Returns exit code: 0=ok, 2=failed
-func printDoctorJSON(moduleCount int, errs, warns []string, strict bool, statsRequested bool, stats *DoctorStats) int {
-	status := "ok"
-	exitCode := 0
+// calculateStats computes module statistics
+func calculateStats(modByID map[string]*model.Module, rules *model.Rules, reachable map[string]bool) *DoctorStats {
+	byLayer := map[string]int{"base": 0, "modes": 0, "traits": 0, "policies": 0, "contracts": 0}
 
-	if len(errs) > 0 {
-		status = "failed"
-		exitCode = 2
-	} else if strict && len(warns) > 0 {
-		status = "failed"
-		exitCode = 2
+	for _, m := range modByID {
+		layerName := layerNameFromIndex(m.Layer)
+		byLayer[layerName]++
 	}
 
-	report := DoctorReport{
-		Status:   status,
-		Modules:  moduleCount,
-		Errors:   errs,
-		Warnings: warns,
-		Stats:    stats,
+	tagValues := map[string]bool{}
+	for _, m := range modByID {
+		for _, t := range m.Front.Tags {
+			if g, v, ok := resolver.ParseKeyedTag(t); ok {
+				tagValues[g+v] = true
+			}
+		}
 	}
 
-	b, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", err)
-		return 2
+	unreachable := 0
+	for id := range modByID {
+		if !reachable[id] {
+			unreachable++
+		}
 	}
 
-	fmt.Println(string(b))
-	return exitCode
+	orphaned := 0
+	for _, m := range modByID {
+		for _, r := range m.Front.Requires {
+			if _, ok := modByID[r]; !ok {
+				orphaned++
+			}
+		}
+	}
+
+	return &DoctorStats{
+		Modules:     len(modByID),
+		ByLayer:     byLayer,
+		Unreachable: unreachable,
+		Tags:        len(tagValues),
+		Groups:      len(rules.ExclusiveGroups),
+		Orphaned:    orphaned,
+	}
 }
 
-// printDoctorJSON outputs doctor results as JSON
-// Returns exit code: 0=ok, 2=failed
-func printDoctorJSON(moduleCount int, errs, warns []string, strict bool) int {
-	status := "ok"
-	exitCode := 0
-
-	if len(errs) > 0 {
-		status = "failed"
-		exitCode = 2
-	} else if strict && len(warns) > 0 {
-		status = "failed"
-		exitCode = 2
+func layerNameFromIndex(idx int) string {
+	switch idx {
+	case 0:
+		return "base"
+	case 1:
+		return "modes"
+	case 2:
+		return "traits"
+	case 3:
+		return "policies"
+	case 4:
+		return "contracts"
+	default:
+		return "unknown"
 	}
-
-	report := DoctorReport{
-		Status:   status,
-		Modules:  moduleCount,
-		Errors:   errs,
-		Warnings: warns,
-	}
-
-	b, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", err)
-		return 2
-	}
-
-	fmt.Println(string(b))
-	return exitCode
 }
