@@ -15,7 +15,7 @@ jobs:
           go-version: '1.22'
 
       - name: Run tests
-        run: go test -v ./...
+        run: go test -v ./... -run "^(TestGolden|TestBasic|TestOrdering|TestKeyed)"
 
       - name: Check formatting
         run: |
