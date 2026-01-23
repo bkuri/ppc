@@ -257,7 +257,7 @@ revisions: 1
 CLI:
 
 ```bash
-build-prompt --profile ship
+ppc --profile ship
 ```
 
 ---
@@ -265,7 +265,7 @@ build-prompt --profile ship
 ## 3.2 Graph Output
 
 ```
-build-prompt doctor --graph > deps.dot
+ppc doctor --graph > deps.dot
 ```
 
 Visualizes:
