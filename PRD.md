@@ -58,7 +58,7 @@ PPC produces **text only**.
 ### 4.1 Generate a prompt via CLI
 
 ```bash
-ppc --conservative --revisions 1 ship
+ppc ship --conservative --revisions 1
 ```
 
 Outputs compiled prompt to stdout.
@@ -68,7 +68,7 @@ Outputs compiled prompt to stdout.
 ### 4.2 Pipe into other tools
 
 ```bash
-ppc --conservative --revisions 1 ship \
+ppc ship --conservative --revisions 1 \
   | fabric --pattern analyze_code
 ```
 
@@ -77,7 +77,7 @@ ppc --conservative --revisions 1 ship \
 ### 4.3 Write prompt to file
 
 ```bash
-ppc --creative --out AGENTS.md explore
+ppc explore --creative --out AGENTS.md
 ```
 
 ---
@@ -85,7 +85,7 @@ ppc --creative --out AGENTS.md explore
 ### 4.4 Inspect behavior resolution
 
 ```bash
-ppc --conservative --explain ship
+ppc ship --conservative --explain
 ```
 
 ---
@@ -345,7 +345,7 @@ No templating engine.
 ### 14.1 Basic usage
 
 ```bash
-ppc [flags] <mode>
+ppc <mode> [flags]
 ```
 
 ---
