@@ -3,8 +3,6 @@ package profile
 import (
 	"fmt"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Profile struct {

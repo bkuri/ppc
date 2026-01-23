@@ -5,35 +5,16 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 
 	"github.com/bkuri/ppc/internal/compile"
 	"github.com/bkuri/ppc/internal/doctor"
-	profilepkg "github.com/bkuri/ppc/internal/profile"
+	"github.com/bkuri/ppc/internal/loader"
 )
 
 // dief prints error to stderr and exits
 func dief(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(2)
-}
-
-// buildTraits converts boolean CLI flags to explicit module IDs
-func buildTraits(conservative, creative, terse, verbose bool) []string {
-	var traits []string
-	if conservative {
-		traits = append(traits, "traits/conservative")
-	}
-	if creative {
-		traits = append(traits, "traits/creative")
-	}
-	if terse {
-		traits = append(traits, "traits/terse")
-	}
-	if verbose {
-		traits = append(traits, "traits/verbose")
-	}
-	return traits
 }
 
 // explainOutput prints compilation metadata to stderr (CLI concern)
@@ -63,13 +44,13 @@ func explainOutput(meta compile.CompileMeta) {
 func runExplore(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("explore", flag.ExitOnError)
 
-	profile := fs.String("profile", "", "load preset configuration (e.g., ship)")
+	profileName := fs.String("profile", "", "load preset configuration (e.g., explore)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
-	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	contract := fs.String("contract", "", "contract module (code|markdown)")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -87,49 +68,37 @@ flags:`)
 
 	fs.Parse(args)
 
-	var opts *compile.CompileOptions
+	// Build ResolvedConfig from profile or defaults
+	var cfg *ResolvedConfig
 	var err error
 
-	if *profile != "" {
-		prof, err := profile.LoadProfile(*profile)
+	if *profileName != "" {
+		cfg, err = NewResolvedConfigFromProfile(*profileName, "explore")
 		if err != nil {
 			dief("profile error: %v", err)
 		}
-
-		mergeOpts := profile.MergeOptions{
-			Conservative: toBoolPtr(*conservative),
-			Creative:     toBoolPtr(*creative),
-			Terse:        toBoolPtr(*terse),
-			Verbose:      toBoolPtr(*verbose),
-			Revisions:    toIntPtr(*revisions),
-			Contract:     toStringPtr(*contract),
-		}
-
-		opts, err = profile.Merge(prof, mergeOpts)
-		if err != nil {
-			dief("merge error: %v", err)
-		}
-		opts.PromptsDir = *proDir
 	} else {
-		traits := buildTraits(*conservative, *creative, *terse, *verbose)
-
-		vars := map[string]string{"mode": "explore"}
-		if *revisions >= 0 {
-			vars["revisions"] = strconv.Itoa(*revisions)
-		}
-
-		opts = &compile.CompileOptions{
+		cfg = &ResolvedConfig{
 			Mode:       "explore",
-			Contract:   *contract,
-			Traits:     traits,
-			PromptsDir: *proDir,
-			Vars:       vars,
+			Contract:   "markdown",
+			Revisions:  -1,
+			Traits:     []string{},
+			Vars:       make(map[string]string),
+			PromptsDir: promptsDir,
 		}
 	}
 
-	out, meta, err := compile.Compile(opts)
+	// Apply CLI overrides
+	cfg, err = cfg.ApplyCLIOverrides(*conservative, *creative, *terse, *verbose, *revisions, *contract, *proDir)
 	if err != nil {
-		dief("%v", err)
+		dief("flag error: %v", err)
+	}
+
+	// Convert to CompileOptions and compile
+	opts := cfg.ToCompileOptions()
+	out, meta, errInterface := compile.Compile(*opts)
+	if errInterface != nil {
+		dief("%v", errInterface)
 	}
 
 	if *withHash {
@@ -151,12 +120,13 @@ flags:`)
 func runBuild(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
 
+	profileName := fs.String("profile", "", "load preset configuration (e.g., build)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
-	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	contract := fs.String("contract", "", "contract module (code|markdown)")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -174,24 +144,37 @@ flags:`)
 
 	fs.Parse(args)
 
-	traits := buildTraits(*conservative, *creative, *terse, *verbose)
+	// Build ResolvedConfig from profile or defaults
+	var cfg *ResolvedConfig
+	var err error
 
-	vars := map[string]string{"mode": "build"}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
+	if *profileName != "" {
+		cfg, err = NewResolvedConfigFromProfile(*profileName, "build")
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+	} else {
+		cfg = &ResolvedConfig{
+			Mode:       "build",
+			Contract:   "markdown",
+			Revisions:  -1,
+			Traits:     []string{},
+			Vars:       make(map[string]string),
+			PromptsDir: promptsDir,
+		}
 	}
 
-	opts := compile.CompileOptions{
-		Mode:       "build",
-		Contract:   *contract,
-		Traits:     traits,
-		PromptsDir: *proDir,
-		Vars:       vars,
-	}
-
-	out, meta, err := compile.Compile(opts)
+	// Apply CLI overrides
+	cfg, err = cfg.ApplyCLIOverrides(*conservative, *creative, *terse, *verbose, *revisions, *contract, *proDir)
 	if err != nil {
-		dief("%v", err)
+		dief("flag error: %v", err)
+	}
+
+	// Convert to CompileOptions and compile
+	opts := cfg.ToCompileOptions()
+	out, meta, errInterface := compile.Compile(*opts)
+	if errInterface != nil {
+		dief("%v", errInterface)
 	}
 
 	if *withHash {
@@ -213,12 +196,13 @@ flags:`)
 func runShip(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("ship", flag.ExitOnError)
 
+	profileName := fs.String("profile", "", "load preset configuration (e.g., ship)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
-	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	contract := fs.String("contract", "", "contract module (code|markdown)")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -236,24 +220,37 @@ flags:`)
 
 	fs.Parse(args)
 
-	traits := buildTraits(*conservative, *creative, *terse, *verbose)
+	// Build ResolvedConfig from profile or defaults
+	var cfg *ResolvedConfig
+	var err error
 
-	vars := map[string]string{"mode": "ship"}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
+	if *profileName != "" {
+		cfg, err = NewResolvedConfigFromProfile(*profileName, "ship")
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+	} else {
+		cfg = &ResolvedConfig{
+			Mode:       "ship",
+			Contract:   "markdown",
+			Revisions:  -1,
+			Traits:     []string{},
+			Vars:       make(map[string]string),
+			PromptsDir: promptsDir,
+		}
 	}
 
-	opts := compile.CompileOptions{
-		Mode:       "ship",
-		Contract:   *contract,
-		Traits:     traits,
-		PromptsDir: *proDir,
-		Vars:       vars,
-	}
-
-	out, meta, err := compile.Compile(opts)
+	// Apply CLI overrides
+	cfg, err = cfg.ApplyCLIOverrides(*conservative, *creative, *terse, *verbose, *revisions, *contract, *proDir)
 	if err != nil {
-		dief("%v", err)
+		dief("flag error: %v", err)
+	}
+
+	// Convert to CompileOptions and compile
+	opts := cfg.ToCompileOptions()
+	out, meta, errInterface := compile.Compile(*opts)
+	if errInterface != nil {
+		dief("%v", errInterface)
 	}
 
 	if *withHash {
