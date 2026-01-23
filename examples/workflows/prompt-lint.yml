@@ -1,0 +1,38 @@
+name: Prompt Policy Check
+
+on: [push, pull_request]
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PPC
+        run: |
+          set -euo pipefail
+          VERSION=v0.2.0
+          curl -fsSL -o ppc.tar.gz \
+            https://github.com/bkuri/ppc/releases/download/${VERSION}/ppc_${VERSION}_linux_amd64.tar.gz
+          tar -xzf ppc.tar.gz
+          chmod +x ppc
+          ./ppc --version
+
+      - name: Prompt policy lint
+        run: |
+          ./ppc doctor --strict --json --out report.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: doctor-report
+          path: report.json
+
+      # Optional:
+      # - name: Dependency graph
+      #   run: ./ppc doctor --graph --out deps.dot
+      #
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ppc-graph
+      #     path: deps.dot

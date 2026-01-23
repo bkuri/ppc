@@ -327,6 +327,8 @@ func main() {
 		strict := fs.Bool("strict", false, "treat warnings as errors")
 		jsonOut := fs.Bool("json", false, "output machine-readable JSON")
 		withStats := fs.Bool("stats", false, "include module statistics in JSON output")
+		graphOut := fs.Bool("graph", false, "output Graphviz DOT format")
+		outPath := fs.String("out", "", "write output to file")
 		proDir := fs.String("prompts", promptsDir, "prompts directory")
 		fs.Usage = func() {
 			fmt.Fprintln(os.Stderr, `usage:
@@ -338,7 +340,7 @@ flags:`)
 			fs.PrintDefaults()
 		}
 		fs.Parse(args)
-		os.Exit(doctor.RunDoctor(*proDir, *strict, *jsonOut, *withStats))
+		os.Exit(doctor.RunDoctor(*proDir, *strict, *jsonOut, *withStats, *graphOut, *outPath))
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcommand)

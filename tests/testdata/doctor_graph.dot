@@ -1,0 +1,50 @@
+digraph ppc {
+  rankdir=LR;
+
+  subgraph cluster_0_base {
+    label="base";
+    "base";
+  }
+
+  subgraph cluster_1_modes {
+    label="modes";
+    "modes/build";
+    "modes/explore";
+    "modes/ship";
+  }
+
+  subgraph cluster_2_traits {
+    label="traits";
+    "traits/conservative";
+    "traits/creative";
+    "traits/terse";
+    "traits/verbose";
+  }
+
+  subgraph cluster_3_policies {
+    label="policies";
+    "policies/revisions";
+    "policies/self_score";
+  }
+
+  subgraph cluster_4_contracts {
+    label="contracts";
+    "contracts/code";
+    "contracts/markdown";
+  }
+
+
+  "traits/conservative" [style="dashed", color="red"];
+  "traits/creative" [style="dashed", color="red"];
+  "traits/terse" [style="dashed", color="red"];
+  "traits/verbose" [style="dashed", color="red"];
+  "policies/revisions" [style="dashed", color="red"];
+  "policies/self_score" [style="dashed", color="red"];
+
+  "base" [shape="box", style="bold"];
+  "modes/build" [shape="box", style="bold"];
+  "modes/explore" [shape="box", style="bold"];
+  "modes/ship" [shape="box", style="bold"];
+  "contracts/code" [shape="box", style="bold"];
+  "contracts/markdown" [shape="box", style="bold"];
+}

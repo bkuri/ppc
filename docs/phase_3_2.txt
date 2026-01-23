@@ -1,0 +1,72 @@
+1. **Graph scope: do all 3 — but keep it simple and deterministic.**
+
+Do this set:
+
+* ✅ **All modules + all `requires` edges** (the whole repo graph)
+* ✅ **Highlight unreachable modules** (e.g., red outline or dashed)
+  This is *the* killer feature; turns the graph into a debugging tool, not a pretty picture.
+* ✅ **Layer boundaries via subgraphs** (optional but cheap)
+  Use `subgraph cluster_*` per layer; it massively improves readability without extra semantics.
+
+Also: include **entrypoints** (base, modes/*, contracts/*) with a distinct shape (box) so “reachability” is visually grounded.
+
+Determinism rules:
+
+* stable ordering of nodes and edges
+* stable attribute ordering
+
+---
+
+2. **Flag name: `--graph` (primary).**
+   It reads better in CLI UX and communicates intent.
+
+`--dot` is accurate but too implementation-y. You can always add `--dot` later as an alias if you want, but start with **`--graph`**.
+
+---
+
+3. **Output format: stdout by default + `--out` supported.**
+
+Exactly like `--json`:
+
+* `ppc doctor --graph` → writes DOT to stdout
+* `ppc doctor --graph --out deps.dot` → file output (and still deterministic)
+
+This aligns with your existing ergonomics and makes piping easy.
+
+---
+
+### Extra spec (worth deciding now)
+
+**Color semantics**
+
+* unreachable: `color=red` (outline) or `style=dashed,color=red`
+* entrypoints: `shape=box,style=bold`
+* normal: default
+
+Avoid including comments like `// unreachable` inside DOT if you can encode it as attributes (cleaner & more machine-friendly).
+
+**Layer clusters**
+
+* cluster name: `cluster_base`, `cluster_modes`, etc.
+* node ordering: sort by module ID inside each cluster
+
+**No timestamps, no random graph IDs.** Keep it fully reproducible.
+
+---
+
+If you want, the simplest DOT skeleton that stays readable:
+
+```dot
+digraph ppc {
+  rankdir=LR;
+
+  subgraph cluster_base { label="base"; "base"; }
+  subgraph cluster_modes { label="modes"; "modes/explore"; "modes/ship"; }
+  ...
+
+  "modes/explore" -> "base";
+  "traits/conservative" -> "base";
+}
+```
+
+That’s enough to be insanely useful.

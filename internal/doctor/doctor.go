@@ -12,7 +12,7 @@ import (
 
 // RunDoctor validates module structure and dependencies
 // Returns exit code: 0=ok, 2=failed
-func RunDoctor(promptsDir string, strict bool, jsonOut bool, statsRequested bool) int {
+func RunDoctor(promptsDir string, strict bool, jsonOut bool, statsRequested bool, graphOut bool, outPath string) int {
 	modByID, err := loader.LoadModules(promptsDir)
 	if err != nil {
 		fmt.Println("doctor: FAILED")
@@ -172,6 +172,11 @@ func RunDoctor(promptsDir string, strict bool, jsonOut bool, statsRequested bool
 	var stats *DoctorStats
 	if statsRequested {
 		stats = calculateStats(modByID, rules, reachable)
+	}
+
+	// Output graph if requested (takes precedence)
+	if graphOut {
+		return printDoctorGraph(modByID, rules, reachable, outPath)
 	}
 
 	// Output results

@@ -70,3 +70,7 @@ Each mode subcommand supports:
 - Deterministic output: same inputs -> same output.
 - Fails loudly on: missing modules, tag conflicts, circular requires.
 
+## CI Integration
+
+See [docs/github-actions.md](docs/github-actions.md) for a ready-to-use
+GitHub Actions workflow that lints prompt policy repositories.
