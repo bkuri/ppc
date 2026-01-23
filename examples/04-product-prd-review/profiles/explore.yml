@@ -1,0 +1,7 @@
+mode: explore
+contract: markdown
+traits: []
+vars:
+  product_name: "NewFeature"
+  target_user: "Developers"
+  risk_level: "low"

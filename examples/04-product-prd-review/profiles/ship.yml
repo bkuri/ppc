@@ -1,0 +1,7 @@
+mode: explore
+contract: markdown
+traits: []
+vars:
+  product_name: "ProductionRelease"
+  target_user: "Customers"
+  risk_level: "high"

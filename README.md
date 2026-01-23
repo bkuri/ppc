@@ -92,6 +92,18 @@ https://github.com/bkuri/ppc/releases
 go build -o ppc ./cmd/build-prompt
 ```
 
+## Examples
+
+If you want to understand PPC quickly, start here:
+
+- `examples/01-basic-prompt`
+- `examples/02-team-style-guide`
+- `examples/03-knowledge-sharing-policy`
+
+Each example is a complete, runnable prompt-policy repository.
+
+They increase in complexity and mirror real-world use cases.
+
 ## Subcommands
 
 PPC uses a subcommand-based CLI:
