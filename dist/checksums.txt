@@ -1,0 +1,5 @@
+965efb609def53f93a85ef599f1006fd770857934d9521ca5aa54198ead329cf  ppc_v0.2.0_darwin_amd64.tar.gz
+c0f6e75804e73ad2192ce85f809de637132aca64f22311fe8de5a395a256e6bc  ppc_v0.2.0_darwin_arm64.tar.gz
+e44d7f8f6b3c3f3428ba9e3b9242ae43333b2bd970fd126b104a88fd74f6efcc  ppc_v0.2.0_linux_amd64.tar.gz
+aa33dcd658a99f0181e4b4beee885be7df2a9e8ee64778668aec52aaf19f56cf  ppc_v0.2.0_linux_arm64.tar.gz
+81ce97ab985eac08753c2b35142cb865a1d01a11330cc0c625a5229f0b9a1a5c  ppc_v0.2.0_windows_amd64.tar.gz

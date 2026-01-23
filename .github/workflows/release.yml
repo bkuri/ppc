@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Build release artifacts
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          make release-all VERSION=$VERSION
+          make archive VERSION=$VERSION
+          make checksums VERSION=$VERSION
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "## Changes in this release" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "# Linux / macOS" >> release_notes.md
+          echo "curl -fsSL -o ppc.tar.gz https://github.com/\${{ github.repository }}/releases/download/\${GITHUB_REF#refs/tags/}/ppc_\${GITHUB_REF#refs/tags/}_\$(uname -s | tr '[:upper:]' '[:lower:]')_\$(uname -m).tar.gz" >> release_notes.md
+          echo "tar -xzf ppc.tar.gz" >> release_notes.md
+          echo "chmod +x ppc" >> release_notes.md
+          echo "./ppc --version" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "# Windows" >> release_notes.md
+          echo "curl -fsSL -o ppc.tar.gz https://github.com/\${{ github.repository }}/releases/download/\${GITHUB_REF#refs/tags/}/ppc_\${GITHUB_REF#refs/tags/}_windows_amd64.tar.gz" >> release_notes.md
+          echo "tar -xzf ppc.tar.gz" >> release_notes.md
+          echo ".\\windows_amd64\\ppc.exe --version" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Verification" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "curl -fsSL -O https://github.com/\${{ github.repository }}/releases/download/\${GITHUB_REF#refs/tags/}/checksums.txt" >> release_notes.md
+          echo "sha256sum -c --ignore-missing checksums.txt" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
