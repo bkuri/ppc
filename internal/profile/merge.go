@@ -67,13 +67,6 @@ func Merge(prof *Profile, opts MergeOptions) (*compile.CompileOptions, error) {
 	}, nil
 }
 
-func varsFromProfile(prof *Profile) map[string]string {
-	if prof.Vars == nil {
-		return make(map[string]string)
-	}
-	return prof.Vars
-}
-
 // validateExclusiveGroups checks if final trait set violates exclusive group rules
 // Returns error with specific conflict details
 func validateExclusiveGroups(traits []string, rules *model.Rules) error {

@@ -17,24 +17,6 @@ func dief(format string, args ...any) {
 	os.Exit(2)
 }
 
-// buildTraits converts boolean CLI flags to explicit module IDs
-func buildTraits(conservative, creative, terse, verbose bool) []string {
-	var traits []string
-	if conservative {
-		traits = append(traits, "traits/conservative")
-	}
-	if creative {
-		traits = append(traits, "traits/creative")
-	}
-	if terse {
-		traits = append(traits, "traits/terse")
-	}
-	if verbose {
-		traits = append(traits, "traits/verbose")
-	}
-	return traits
-}
-
 // explainOutput prints compilation metadata to stderr (CLI concern)
 func explainOutput(meta compile.CompileMeta) {
 	fmt.Fprintln(os.Stderr, "PPC explain")
