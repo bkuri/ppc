@@ -54,7 +54,7 @@ A clean scope for v0.1 template:
 
 ### Tiny workflow skeleton (recommended path)
 
-This assumes you publish a Linux binary called `ppc` (or `build-prompt`) in releases.
+This assumes you publish a Linux binary called `ppc` in releases.
 
 ```yaml
 name: Prompt Policy Check
