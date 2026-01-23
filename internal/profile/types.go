@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	_ "gopkg.in/yaml.v3"
 )
 
 type Profile struct {

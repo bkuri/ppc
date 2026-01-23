@@ -9,7 +9,7 @@ import (
 
 	"github.com/bkuri/ppc/internal/compile"
 	"github.com/bkuri/ppc/internal/doctor"
-	profilepkg "github.com/bkuri/ppc/internal/profile"
+	"github.com/bkuri/ppc/internal/loader"
 )
 
 // dief prints error to stderr and exits
@@ -87,50 +87,28 @@ flags:`)
 
 	fs.Parse(args)
 
-	var opts *compile.CompileOptions
-	var err error
-
+	cfg := &ResolvedConfig{}
 	if *profile != "" {
-		prof, err := profile.LoadProfile(*profile)
+		profCfg, err := NewResolvedConfigFromProfile(*profile)
 		if err != nil {
 			dief("profile error: %v", err)
 		}
-
-		mergeOpts := profile.MergeOptions{
-			Conservative: toBoolPtr(*conservative),
-			Creative:     toBoolPtr(*creative),
-			Terse:        toBoolPtr(*terse),
-			Verbose:      toBoolPtr(*verbose),
-			Revisions:    toIntPtr(*revisions),
-			Contract:     toStringPtr(*contract),
-		}
-
-		opts, err = profile.Merge(prof, mergeOpts)
-		if err != nil {
-			dief("merge error: %v", err)
-		}
-		opts.PromptsDir = *proDir
+		cfg = profCfg
 	} else {
-		traits := buildTraits(*conservative, *creative, *terse, *verbose)
-
-		vars := map[string]string{"mode": "explore"}
-		if *revisions >= 0 {
-			vars["revisions"] = strconv.Itoa(*revisions)
-		}
-
-		opts = &compile.CompileOptions{
-			Mode:       "explore",
-			Contract:   *contract,
-			Traits:     traits,
-			PromptsDir: *proDir,
-			Vars:       vars,
-		}
+		defaults := NewResolvedConfigFromDefaults("explore", *contract)
+		cfg = &defaults
 	}
 
-	out, meta, err := compile.Compile(opts)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
 	if err != nil {
-		dief("%v", err)
+		dief("merge error: %v", err)
 	}
+
+	cfg.PromptsDir = *proDir
+
+	opts := cfg.ToCompileOptions()
+
+	out, meta, _ := compile.Compile(opts)
 
 	if *withHash {
 		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
@@ -151,6 +129,7 @@ flags:`)
 func runBuild(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
 
+	profile := fs.String("profile", "", "load preset configuration (e.g., ship)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
@@ -174,25 +153,110 @@ flags:`)
 
 	fs.Parse(args)
 
-	traits := buildTraits(*conservative, *creative, *terse, *verbose)
-
-	vars := map[string]string{"mode": "build"}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
+	cfg := &ResolvedConfig{}
+	if *profile != "" {
+		profCfg, err := NewResolvedConfigFromProfile(*profile)
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+		cfg = profCfg
+	} else {
+		defaults := NewResolvedConfigFromDefaults("build", *contract)
+		cfg = &defaults
 	}
 
-	opts := compile.CompileOptions{
-		Mode:       "build",
-		Contract:   *contract,
-		Traits:     traits,
-		PromptsDir: *proDir,
-		Vars:       vars,
-	}
-
-	out, meta, err := compile.Compile(opts)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
 	if err != nil {
-		dief("%v", err)
+		dief("merge error: %v", err)
 	}
+
+	cfg.PromptsDir = *proDir
+
+	opts := cfg.ToCompileOptions()
+
+	out, meta, _ := compile.Compile(opts)
+
+	if *withHash {
+		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
+	}
+
+	if *explain {
+		explainOutput(meta)
+	}
+
+	if *outPath != "" {
+		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
+			dief("failed to write %s: %v", *outPath, err)
+		}
+	}
+	fmt.Print(out)
+}
+
+	fs.Parse(args)
+
+	cfg := &ResolvedConfig{}
+	if *profile != "" {
+		profCfg, err := NewResolvedConfigFromProfile(*profile)
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+		cfg = profCfg
+	} else {
+		defaults := NewResolvedConfigFromDefaults("build", *contract)
+		cfg = &defaults
+	}
+
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	if err != nil {
+		dief("merge error: %v", err)
+	}
+
+	cfg.PromptsDir = *proDir
+
+	opts := cfg.ToCompileOptions()
+
+	out, meta, _ := compile.Compile(opts)
+
+	if *withHash {
+		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
+	}
+
+	if *explain {
+		explainOutput(meta)
+	}
+
+	if *outPath != "" {
+		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
+			dief("failed to write %s: %v", *outPath, err)
+		}
+	}
+	fmt.Print(out)
+}
+
+	fs.Parse(args)
+
+	cfg := &ResolvedConfig{}
+	if *profile != "" {
+		profCfg, err := NewResolvedConfigFromProfile(*profile)
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+		cfg = profCfg
+	} else {
+		defaults := NewResolvedConfigFromDefaults("build", *contract)
+		cfg = &defaults
+	}
+
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	if err != nil {
+		dief("merge error: %v", err)
+	}
+
+	cfg.PromptsDir = *proDir
+
+	opts := cfg.ToCompileOptions()
+
+	out, meta, _ := compile.Compile(opts)
 
 	if *withHash {
 		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
@@ -236,12 +300,46 @@ flags:`)
 
 	fs.Parse(args)
 
-	traits := buildTraits(*conservative, *creative, *terse, *verbose)
-
-	vars := map[string]string{"mode": "ship"}
-	if *revisions >= 0 {
-		vars["revisions"] = strconv.Itoa(*revisions)
+	cfg := &ResolvedConfig{}
+	if *profile != "" {
+		profCfg, err := NewResolvedConfigFromProfile(*profile)
+		if err != nil {
+			dief("profile error: %v", err)
+		}
+		cfg = profCfg
+	} else {
+		defaults := NewResolvedConfigFromDefaults("build", *contract)
+		cfg = &defaults
 	}
+
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	if err != nil {
+		dief("merge error: %v", err)
+	}
+
+	cfg.PromptsDir = *proDir
+
+	opts := cfg.ToCompileOptions()
+
+	out, meta, _ := compile.Compile(opts)
+
+	if *withHash {
+		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
+	}
+
+	if *explain {
+		explainOutput(meta)
+	}
+
+	if *outPath != "" {
+		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
+			dief("failed to write %s: %v", *outPath, err)
+		}
+	}
+	fmt.Print(out)
+}
+
+func runShip(args []string, promptsDir string) {
 
 	opts := compile.CompileOptions{
 		Mode:       "ship",
