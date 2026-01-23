@@ -73,6 +73,7 @@ func runExplore(args []string, promptsDir string) {
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
 	proDir := fs.String("prompts", promptsDir, "prompts directory")
+	stats := fs.Bool("stats", false, "output stats with doctor results")
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, `usage:
@@ -112,6 +113,14 @@ flags:`)
 
 	if *explain {
 		explainOutput(meta)
+	}
+
+	if *stats {
+		fmt.Println("stats:")
+		fmt.Printf("  Modules: %d\n", len(modByID))
+		fmt.Printf("  Unreachable: %d\n", unreachable)
+		fmt.Printf("  Tags: %d\n", len(tagValues))
+		fmt.Printf("  Groups: %d\n", len(groupValues))
 	}
 
 	if *outPath != "" {

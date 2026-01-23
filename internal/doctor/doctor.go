@@ -12,14 +12,9 @@ import (
 
 // RunDoctor validates module structure and dependencies
 // Returns exit code: 0=ok, 2=failed
-func RunDoctor(promptsDir string, strict bool, jsonOut bool) int {
-	modByID, err := loader.LoadModules(promptsDir)
-	if err != nil {
-		fmt.Println("doctor: FAILED")
-		fmt.Println("errors:")
-		fmt.Printf("  - %v\n", err)
-		return 2
-	}
+func runDoctor(promptsDir string, strict bool, jsonOut bool) int {
+	return doctor.RunDoctor(promptsDir, strict, jsonOut, false)
+}
 
 	rules, err := loader.LoadRules(promptsDir)
 	if err != nil {
