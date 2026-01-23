@@ -1,0 +1,809 @@
+# Phase 4: Distribution & Releases — Implementation Plan
+
+## Summary
+
+Phase 4 delivers the infrastructure for publishing PPC releases across multiple platforms, providing users with simple, verifiable installation methods.
+
+## Key Decisions (Confirmed)
+
+### 1. Platform Support
+- linux/amd64 (x86_64 Linux)
+- linux/arm64 (aarch64 Linux, Raspberry Pi, cloud ARM)
+- darwin/amd64 (Intel macOS)
+- darwin/arm64 (Apple Silicon M1/M2/M3)
+- windows/amd64 (x86_64 Windows)
+- windows/arm64: Only on user request
+
+### 2. Release Contents
+- Binary only (ppc executable)
+- LICENSE file
+- README.md
+- NO bundled prompts/ directory (example prompts stay in repo only)
+
+### 3. Release Tooling
+- Simple Makefile + GitHub Actions (no goreleaser)
+- Transparent `go build` with GOOS/GOARCH matrix
+- Manual tar/zip artifact creation
+- Direct GitHub Releases upload
+
+### 4. Installation Methods
+- Primary: Download from GitHub Releases (pinned version)
+- Secondary: `go install github.com/bkuri/ppc/cmd/build-prompt@vX.Y.Z` (pinned)
+- Tertiary: AUR package (on demand, to be added later)
+- Not supporting: snap, apt, yum, Homebrew (unless demand emerges)
+
+### 5. Binary Naming
+- Package path: `cmd/build-prompt/` (internal)
+- Binary name: `ppc` (user-facing)
+- Release archive: `ppc_v0.2.0_linux_amd64.tar.gz`
+
+---
+
+## Implementation Tasks
+
+### 4.1 Version Management (30 min)
+
+**Goal:** Establish deterministic version tracking with `--version` flag.
+
+**Tasks:**
+1. Create `cmd/build-prompt/version.go`:
+   ```go
+   package main
+   
+   const Version = "v0.2.0"
+   
+   func printVersion() {
+       fmt.Printf("ppc version %s\n", Version)
+   }
+   ```
+
+2. Add `--version` global flag to `cmd/build-prompt/main.go`:
+   - Before subcommand dispatch
+   - Print version and exit(0) when set
+   - Ensure flag doesn't interfere with subcommands
+
+3. Update smoke test script to verify `--version` works.
+
+**Files to create:**
+- `cmd/build-prompt/version.go`
+
+**Files to modify:**
+- `cmd/build-prompt/main.go`
+- `scripts/smoke.sh`
+
+**Acceptance criteria:**
+- `./ppc --version` prints "ppc version v0.2.0"
+- Version is constant and deterministic
+
+---
+
+### 4.2 Cross-Platform Build System (1 hour)
+
+**Goal:** Build static binaries for all 5 platforms with a single command.
+
+**Makefile enhancements:**
+
+```makefile
+# Platform list
+PLATFORMS=linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILDDIR=dist
+
+# Extract OS/ARCH from platform
+os = $(word 1,$(subst /, ,$@))
+arch = $(word 2,$(subst /, ,$@))
+
+# Build single platform binary
+$(PLATFORMS):
+	@echo "Building $@..."
+	@mkdir -p $(BUILDDIR)
+	GOOS=$(os) GOARCH=$(arch) go build \
+		-ldflags="-s -w -X main.Version=$(VERSION)" \
+		-o $(BUILDDIR)/ppc_$(VERSION)_$@ \
+		./cmd/build-prompt
+
+# Windows binary gets .exe extension
+windows/amd64:
+	@echo "Building $@..."
+	@mkdir -p $(BUILDDIR)
+	GOOS=windows GOARCH=amd64 go build \
+		-ldflags="-s -w -X main.Version=$(VERSION)" \
+		-o $(BUILDDIR)/ppc_$(VERSION)_windows_amd64.exe \
+		./cmd/build-prompt
+
+# Build all platforms
+release-all: $(PLATFORMS)
+
+# Clean build artifacts
+clean-release:
+	rm -rf $(BUILDDIR)
+```
+
+**Tasks:**
+1. Update `Makefile` with platform matrix
+2. Add version injection via `-ldflags`
+3. Add clean-release target
+4. Test building for linux/amd64 (native)
+5. Test cross-compilation (can't run, but verify build succeeds)
+
+**Files to modify:**
+- `Makefile`
+
+**Acceptance criteria:**
+- `make release-all` builds 5 binaries in dist/
+- All binaries are stripped and static
+- Binary sizes are reasonable (< 5MB)
+- Version is injected correctly
+
+---
+
+### 4.3 Release Archive Packaging (30 min)
+
+**Goal:** Create tar.gz archives with binary + license + readme.
+
+**Makefile additions:**
+
+```makefile
+# Create release archives
+archive: release-all
+	@echo "Creating archives..."
+	@for platform in $(PLATFORMS); do \
+		mkdir -p $(BUILDDIR)/$$platform; \
+		if [ "$$platform" = "windows/amd64" ]; then \
+			cp $(BUILDDIR)/ppc_$(VERSION)_windows_amd64.exe $(BUILDDIR)/$$platform/ppc.exe; \
+		else \
+			cp $(BUILDDIR)/ppc_$(VERSION)_$$platform $(BUILDDIR)/$$platform/ppc; \
+			chmod +x $(BUILDDIR)/$$platform/ppc; \
+		fi; \
+		cp LICENSE $(BUILDDIR)/$$platform/; \
+		cp README.md $(BUILDDIR)/$$platform/; \
+		cd $(BUILDDIR) && tar -czf ppc_$(VERSION)_$$platform.tar.gz $$platform; \
+	done
+	@echo "Archives created in $(BUILDDIR)/"
+
+# Clean everything (including archives)
+clean-all: clean clean-release
+	rm -f $(BUILDDIR)/*.tar.gz
+```
+
+**Tasks:**
+1. Add archive target to Makefile
+2. Test archive creation for linux/amd64
+3. Verify tar.gz contents are correct
+4. Test extraction and verify binary runs
+
+**Files to modify:**
+- `Makefile`
+
+**Acceptance criteria:**
+- Archives include: binary, LICENSE, README.md
+- Archives are named `ppc_v0.2.0_linux_amd64.tar.gz`
+- Extracted archives have working binary
+
+---
+
+### 4.4 Checksum Generation (30 min)
+
+**Goal:** Generate SHA256 checksums for all release archives.
+
+**Create `scripts/generate-checksums.sh`:**
+
+```bash
+#!/bin/bash
+set -e
+
+BUILDDIR=${BUILDDIR:-dist}
+CHECKSUM_FILE=$BUILDDIR/checksums.txt
+
+echo "Generating checksums for release archives..."
+cd "$BUILDDIR"
+sha256sum *.tar.gz > "$CHECKSUM_FILE"
+cat "$CHECKSUM_FILE"
+echo "Checksums written to $CHECKSUM_FILE"
+```
+
+**Makefile addition:**
+
+```makefile
+# Generate checksums
+checksums: archive
+	@./scripts/generate-checksums.sh
+
+.PHONY: checksums
+```
+
+**Tasks:**
+1. Create checksum generation script
+2. Add checksums target to Makefile
+3. Verify checksum file format
+4. Test checksum verification
+
+**Files to create:**
+- `scripts/generate-checksums.sh`
+
+**Files to modify:**
+- `Makefile`
+
+**Acceptance criteria:**
+- `make checksums` generates `dist/checksums.txt`
+- Format: `hash  filename`
+- Verification works: `sha256sum -c checksums.txt`
+
+---
+
+### 4.5 GitHub Actions Release Workflow (1.5 hours)
+
+**Goal:** Automate release creation on version tag push.
+
+**Create `.github/workflows/release.yml`:**
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Install release tools
+        run: |
+          go install github.com/goreleaser/goreleaser@latest
+
+      - name: Build release artifacts
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          make release-all VERSION=$VERSION
+          make archive VERSION=$VERSION
+          make checksums VERSION=$VERSION
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "## Changes in this release" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### Installation" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "# Linux / macOS" >> release_notes.md
+          echo "curl -fsSL -o ppc.tar.gz https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF#refs/tags/}/ppc_${GITHUB_REF#refs/tags/}_\$(uname -s)_\$(uname -m).tar.gz" >> release_notes.md
+          echo "tar -xzf ppc.tar.gz" >> release_notes.md
+          echo "chmod +x ppc" >> release_notes.md
+          echo "./ppc --version" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "# Windows" >> release_notes.md
+          echo "curl -fsSL -o ppc.zip https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF#refs/tags/}/ppc_${GITHUB_REF#refs/tags/}_windows_amd64.tar.gz" >> release_notes.md
+          echo "tar -xzf ppc.zip" >> release_notes.md
+          echo ".\ppc.exe --version" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Tasks:**
+1. Create release workflow
+2. Test workflow syntax (dry run)
+3. Create test tag to verify workflow
+4. Verify release artifacts are uploaded correctly
+
+**Files to create:**
+- `.github/workflows/release.yml`
+- `.github/` (directory)
+
+**Acceptance criteria:**
+- Pushing `v0.2.0` tag triggers workflow
+- All 5 binaries + checksums are uploaded
+- Release notes are auto-generated
+- Release is published (not draft)
+
+---
+
+### 4.6 Arch Linux PKGBUILD (1 hour)
+
+**Goal:** Provide Arch Linux package for AUR.
+
+**Create `contrib/arch/PKGBUILD`:**
+
+```bash
+# Maintainer: Your Name <your@email.com>
+pkgname=ppc
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Prompt Policy Compiler - compile Markdown behavior modules into deterministic prompts"
+arch=('x86_64' 'aarch64' 'armv7h')
+url="https://github.com/bkuri/ppc"
+license=('MIT')
+depends=()
+makedepends=('go')
+provides=('ppc')
+conflicts=('ppc')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/bkuri/ppc/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  go build -ldflags="-s -w" -o ppc ./cmd/build-prompt
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 ppc "$pkgdir/usr/bin/ppc"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+```
+
+**Create `contrib/arch/README.md`:**
+
+```markdown
+# Arch Linux Installation
+
+## Building from PKGBUILD
+
+1. Clone this repo:
+   ```bash
+   git clone https://github.com/bkuri/ppc.git
+   cd ppc
+   ```
+
+2. Build package:
+   ```bash
+   cd contrib/arch
+   makepkg -si
+   ```
+
+3. Verify installation:
+   ```bash
+   ppc --version
+   ```
+
+## Submitting to AUR (Future)
+
+Once ready for AUR:
+
+1. Create AUR package repo:
+   ```bash
+   ssh aur@aur.archlinux.org setup ppc
+   ```
+
+2. Push PKGBUILD:
+   ```bash
+   git clone ssh://aur@aur.archlinux.org/ppc.git
+   cp contrib/arch/PKGBUILD ppc/
+   cd ppc
+   git add PKGBUILD
+   git commit -m "Update to v0.2.0"
+   git push
+   ```
+
+3. Users install with:
+   ```bash
+   yay -S ppc
+   # or
+   paru -S ppc
+   ```
+```
+
+**Tasks:**
+1. Create PKGBUILD
+2. Create Arch README
+3. Test building package with `makepkg`
+4. Verify installation works
+
+**Files to create:**
+- `contrib/arch/PKGBUILD`
+- `contrib/arch/README.md`
+- `contrib/arch/` (directory)
+
+**Acceptance criteria:**
+- `makepkg` builds package successfully
+- `makepkg -i` installs binary to /usr/bin/ppc
+- Installed binary works correctly
+
+---
+
+### 4.7 Documentation Updates (1 hour)
+
+**Goal:** Document installation and verification procedures.
+
+**Update `README.md` - Add Installation section after Build section:**
+
+```markdown
+## Installation
+
+### Method 1: Download from Releases (Recommended)
+
+1. Download for your platform:
+   ```bash
+   curl -fsSL -o ppc.tar.gz \
+     https://github.com/bkuri/ppc/releases/download/v0.2.0/ppc_v0.2.0_linux_amd64.tar.gz
+   ```
+
+2. Extract and install:
+   ```bash
+   tar -xzf ppc.tar.gz
+   chmod +x ppc
+   sudo mv ppc /usr/local/bin/
+   ```
+
+3. Verify:
+   ```bash
+   ppc --version
+   ```
+
+Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`.
+
+### Method 2: Verify Checksums
+
+Always verify release integrity:
+
+```bash
+# Download checksums
+curl -fsSL -O https://github.com/bkuri/ppc/releases/download/v0.2.0/checksums.txt
+
+# Verify your downloaded archive
+sha256sum -c --ignore-missing checksums.txt
+```
+
+Should output: `ppc_v0.2.0_linux_amd64.tar.gz: OK`
+
+### Method 3: Go Install
+
+Pin to specific version for reproducibility:
+
+```bash
+go install github.com/bkuri/ppc/cmd/build-prompt@v0.2.0
+```
+
+The binary installs to `$GOPATH/bin/ppc` (usually `~/go/bin/ppc`).
+
+### Method 4: Build from Source
+
+```bash
+git clone https://github.com/bkuri/ppc.git
+cd ppc
+go build -o ppc ./cmd/build-prompt
+```
+
+### Method 5: Arch Linux (Future)
+
+PKGBUILD available in `contrib/arch/PKGBUILD`.
+
+See `contrib/arch/README.md` for build instructions.
+
+---
+
+## Versioning
+
+PPC follows semantic versioning: `vX.Y.Z`
+
+- X: Major version (breaking changes)
+- Y: Minor version (new features, backward compatible)
+- Z: Patch version (bug fixes)
+
+To install a specific version, use:
+```bash
+go install github.com/bkuri/ppc/cmd/build-prompt@v0.2.0
+```
+
+Check for latest releases at:
+https://github.com/bkuri/ppc/releases
+```
+
+**Create `docs/verification.md`:**
+
+```markdown
+# Verifying PPC Release Integrity
+
+## Why Verify?
+
+Release verification ensures:
+- Downloaded file is uncorrupted
+- No tampering occurred during transfer
+- File matches published checksum
+
+## Quick Verification
+
+1. Download release and checksums:
+   ```bash
+   VERSION=v0.2.0
+   curl -fsSL -O https://github.com/bkuri/ppc/releases/download/${VERSION}/ppc_${VERSION}_linux_amd64.tar.gz
+   curl -fsSL -O https://github.com/bkuri/ppc/releases/download/${VERSION}/checksums.txt
+   ```
+
+2. Verify checksum:
+   ```bash
+   sha256sum -c --ignore-missing checksums.txt
+   ```
+
+Expected output: `ppc_v0.2.0_linux_amd64.tar.gz: OK`
+
+## Manual Verification
+
+If `sha256sum` not available:
+
+1. View checksums:
+   ```bash
+   cat checksums.txt
+   ```
+
+2. Compute and compare:
+   ```bash
+   sha256sum ppc_v0.2.0_linux_amd64.tar.gz
+   ```
+
+3. Compare output with checksums.txt
+
+## Verification Failures
+
+If verification fails:
+1. Delete the corrupted download
+2. Re-download the archive
+3. Verify checksums again
+4. Report issue: https://github.com/bkuri/ppc/issues
+
+## PGP Signatures (Future)
+
+Future releases may include PGP signatures for cryptographic verification.
+```
+
+**Update `ROADMAP.md` - Expand Phase 4:**
+
+```markdown
+# Phase 4 — Distribution
+
+**Status:** In progress
+
+## Implementation
+
+### 4.1 Version Management
+- Add `--version` flag
+- Version constant in code
+- Version injection during build
+
+### 4.2 Cross-Platform Builds
+- linux/amd64, linux/arm64
+- darwin/amd64, darwin/arm64
+- windows/amd64
+- Makefile release targets
+
+### 4.3 Release Packaging
+- Binary + LICENSE + README
+- tar.gz archives
+- Platform-specific naming
+
+### 4.4 Checksums
+- SHA256 for all archives
+- checksums.txt file
+- Verification documentation
+
+### 4.5 GitHub Actions Release
+- Automated release on tag push
+- Multi-platform matrix
+- Release notes generation
+
+### 4.6 Arch Linux PKGBUILD
+- PKGBUILD definition
+- Build documentation
+- Future AUR submission
+
+### 4.7 Installation Documentation
+- Multiple installation methods
+- Checksum verification
+- Version pinning guidelines
+
+## Success Criteria
+
+- Users can download and install PPC in under 1 minute
+- All releases are verifiable with SHA256
+- Automated releases on tag push
+- Arch Linux package available
+
+---
+
+## Next Phases
+
+Phase 5: ???
+
+(Phase 4 completes v0.2.0 distribution infrastructure)
+```
+
+**Files to create:**
+- `docs/verification.md`
+
+**Files to modify:**
+- `README.md`
+- `ROADMAP.md`
+
+**Acceptance criteria:**
+- README has complete installation section
+- All 5 installation methods documented
+- Verification guide exists
+- ROADMAP updated with Phase 4 details
+
+---
+
+### 4.8 Testing & Validation (1 hour)
+
+**Goal:** Validate complete release pipeline end-to-end.
+
+**Test matrix:**
+
+1. **Version flag:**
+   ```bash
+   ./ppc --version
+   # Expected: ppc version v0.2.0
+   ```
+
+2. **Build all platforms:**
+   ```bash
+   make release-all VERSION=v0.2.0
+   # Verify 5 binaries in dist/
+   ```
+
+3. **Archive creation:**
+   ```bash
+   make archive VERSION=v0.2.0
+   # Verify 5 .tar.gz files
+   # Extract one and verify contents
+   ```
+
+4. **Checksums:**
+   ```bash
+   make checksums VERSION=v0.2.0
+   # Verify dist/checksums.txt format
+   sha256sum -c dist/checksums.txt
+   ```
+
+5. **Smoke test native binary:**
+   ```bash
+   dist/ppc_v0.2.0_linux_amd64/ppc explore --profile explore > /tmp/test.md
+   cat /tmp/test.md | head -5
+   ```
+
+6. **Arch package build:**
+   ```bash
+   cd contrib/arch
+   makepkg
+   # Verify package created
+   makepkg -i
+   # Verify installation
+   ppc --version
+   ```
+
+7. **Cross-platform syntax check:**
+   ```bash
+   # Can't run ARM binaries on x86_64, but can verify they exist
+   ls -lh dist/ppc_v0.2.0_*.tar.gz
+   ```
+
+**Tasks:**
+1. Run all tests
+2. Fix any issues found
+3. Document test results
+4. Create test tag: `git tag v0.2.0-test`
+5. Verify GitHub Actions workflow (dry run or test release)
+
+**Acceptance criteria:**
+- All tests pass
+- Native binary works correctly
+- Archives extract correctly
+- Checksums verify
+- PKGBUILD builds package
+- GitHub Actions syntax is valid
+
+---
+
+## Final Release Steps
+
+After all implementation and testing complete:
+
+1. **Create final version tag:**
+   ```bash
+   git tag -a v0.2.0 -m "Release v0.2.0: Phase 4 complete"
+   git push origin v0.2.0
+   ```
+
+2. **Verify GitHub Actions:**
+   - Watch workflow run on GitHub
+   - Verify all artifacts uploaded
+   - Check release page
+
+3. **Test release download:**
+   ```bash
+   # Download and verify
+   VERSION=v0.2.0
+   curl -fsSL -o ppc.tar.gz https://github.com/bkuri/ppc/releases/download/${VERSION}/ppc_${VERSION}_linux_amd64.tar.gz
+   tar -xzf ppc.tar.gz
+   ./ppc --version
+   ```
+
+4. **Update documentation links:**
+   - Update any `dev` references to `v0.2.0`
+   - Verify docs are accurate
+
+5. **Announce:**
+   - Update README with latest release
+   - Post release notes
+
+---
+
+## Success Criteria
+
+Phase 4 is complete when:
+
+✅ `ppc --version` displays `v0.2.0`
+✅ `make release-all VERSION=v0.2.0` builds 5 platform binaries
+✅ `make archive VERSION=v0.2.0` creates 5 tar.gz archives
+✅ `make checksums VERSION=v0.2.0` generates checksums.txt
+✅ All archives contain: binary, LICENSE, README.md
+✅ GitHub Actions workflow triggers on tag push
+✅ Release v0.2.0 is published with all artifacts
+✅ Users can download and verify with one command
+✅ Arch PKGBUILD builds successfully
+✅ README has complete installation section
+✅ Checksum verification is documented
+✅ All tests pass
+
+---
+
+## Platform Matrix
+
+| Platform | OS    | Arch   | Binary Name                     |
+|----------|-------|--------|--------------------------------|
+| linux    | linux | amd64  | ppc_v0.2.0_linux_amd64.tar.gz  |
+| linux    | linux | arm64  | ppc_v0.2.0_linux_arm64.tar.gz  |
+| darwin   | macOS | amd64  | ppc_v0.2.0_darwin_amd64.tar.gz |
+| darwin   | macOS | arm64  | ppc_v0.2.0_darwin_arm64.tar.gz |
+| windows  | win   | amd64  | ppc_v0.2.0_windows_amd64.tar.gz |
+
+---
+
+## Estimated Timeline
+
+- 4.1 Version Management: 30 min
+- 4.2 Cross-Platform Build: 1 hour
+- 4.3 Archive Packaging: 30 min
+- 4.4 Checksum Generation: 30 min
+- 4.5 GitHub Actions: 1.5 hours
+- 4.6 Arch PKGBUILD: 1 hour
+- 4.7 Documentation: 1 hour
+- 4.8 Testing: 1 hour
+
+**Total: ~7 hours**
+
+---
+
+## Rollout Plan
+
+1. Implement all tasks (4.1-4.7)
+2. Test thoroughly (4.8)
+3. Create tag v0.2.0
+4. Verify GitHub Actions release
+5. Update docs if needed
+6. Announce release
+

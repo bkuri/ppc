@@ -374,23 +374,24 @@ func printGlobalUsage() {
 	fmt.Fprintln(os.Stderr, `usage:
   ppc <subcommand> [flags]
 
-subcommands:
+ subcommands:
   explore    Generate prompt for exploration mode
   build      Generate prompt for build mode
   ship       Generate prompt for shipping mode
   doctor     Validate module structure and dependencies
 
-global flags:
+ global flags:
   --list     List all available modules
+  --version  Show version information
   --help     Show this help message
 
-examples:
+ examples:
   ppc explore --conservative --revisions 1 --contract markdown
   ppc build --conservative --revisions 1 --contract code --explain
   ppc ship --creative --out AGENTS.md --hash
   ppc doctor --strict --json
 
-run 'ppc <subcommand> --help' for subcommand-specific options`)
+ run 'ppc <subcommand> --help' for subcommand-specific options`)
 }
 
 func handleListModules(promptsDir string) {
@@ -416,6 +417,12 @@ func handleListModules(promptsDir string) {
 }
 
 func main() {
+	// Handle global flags that don't require subcommand parsing
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		printVersion()
+		os.Exit(0)
+	}
+
 	if len(os.Args) < 2 {
 		printGlobalUsage()
 		os.Exit(1)
