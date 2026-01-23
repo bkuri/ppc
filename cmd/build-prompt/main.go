@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 
 	"github.com/bkuri/ppc/internal/compile"
 	"github.com/bkuri/ppc/internal/doctor"
@@ -192,91 +191,10 @@ flags:`)
 	fmt.Print(out)
 }
 
-	fs.Parse(args)
-
-	cfg := &ResolvedConfig{}
-	if *profile != "" {
-		profCfg, err := NewResolvedConfigFromProfile(*profile)
-		if err != nil {
-			dief("profile error: %v", err)
-		}
-		cfg = profCfg
-	} else {
-		defaults := NewResolvedConfigFromDefaults("build", *contract)
-		cfg = &defaults
-	}
-
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
-	if err != nil {
-		dief("merge error: %v", err)
-	}
-
-	cfg.PromptsDir = *proDir
-
-	opts := cfg.ToCompileOptions()
-
-	out, meta, _ := compile.Compile(opts)
-
-	if *withHash {
-		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
-	}
-
-	if *explain {
-		explainOutput(meta)
-	}
-
-	if *outPath != "" {
-		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
-			dief("failed to write %s: %v", *outPath, err)
-		}
-	}
-	fmt.Print(out)
-}
-
-	fs.Parse(args)
-
-	cfg := &ResolvedConfig{}
-	if *profile != "" {
-		profCfg, err := NewResolvedConfigFromProfile(*profile)
-		if err != nil {
-			dief("profile error: %v", err)
-		}
-		cfg = profCfg
-	} else {
-		defaults := NewResolvedConfigFromDefaults("build", *contract)
-		cfg = &defaults
-	}
-
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
-	if err != nil {
-		dief("merge error: %v", err)
-	}
-
-	cfg.PromptsDir = *proDir
-
-	opts := cfg.ToCompileOptions()
-
-	out, meta, _ := compile.Compile(opts)
-
-	if *withHash {
-		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
-	}
-
-	if *explain {
-		explainOutput(meta)
-	}
-
-	if *outPath != "" {
-		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
-			dief("failed to write %s: %v", *outPath, err)
-		}
-	}
-	fmt.Print(out)
-}
-
 func runShip(args []string, promptsDir string) {
 	fs := flag.NewFlagSet("ship", flag.ExitOnError)
 
+	profile := fs.String("profile", "", "load preset configuration (e.g., ship)")
 	conservative := fs.Bool("conservative", false, "include traits/conservative")
 	creative := fs.Bool("creative", false, "include traits/creative")
 	terse := fs.Bool("terse", false, "include traits/terse")
@@ -308,7 +226,7 @@ flags:`)
 		}
 		cfg = profCfg
 	} else {
-		defaults := NewResolvedConfigFromDefaults("build", *contract)
+		defaults := NewResolvedConfigFromDefaults("ship", *contract)
 		cfg = &defaults
 	}
 
@@ -322,37 +240,6 @@ flags:`)
 	opts := cfg.ToCompileOptions()
 
 	out, meta, _ := compile.Compile(opts)
-
-	if *withHash {
-		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
-	}
-
-	if *explain {
-		explainOutput(meta)
-	}
-
-	if *outPath != "" {
-		if err := os.WriteFile(*outPath, []byte(out), 0o644); err != nil {
-			dief("failed to write %s: %v", *outPath, err)
-		}
-	}
-	fmt.Print(out)
-}
-
-func runShip(args []string, promptsDir string) {
-
-	opts := compile.CompileOptions{
-		Mode:       "ship",
-		Contract:   *contract,
-		Traits:     traits,
-		PromptsDir: *proDir,
-		Vars:       vars,
-	}
-
-	out, meta, err := compile.Compile(opts)
-	if err != nil {
-		dief("%v", err)
-	}
 
 	if *withHash {
 		out = fmt.Sprintf("<!-- prompt-id: sha256:%s -->\n\n%s", meta.Hash, out)
