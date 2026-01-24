@@ -1,0 +1,5 @@
+# Tag Conflict Rules
+#
+# This example doesn't require exclusive tag groups.
+# The policy enforces role and phase discipline through content,
+# not through module tags.

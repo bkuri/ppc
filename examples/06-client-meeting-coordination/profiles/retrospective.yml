@@ -1,0 +1,25 @@
+# Template: retrospective meeting
+# Adapt base policies for retrospective context
+
+mode: retrospective
+
+# Configuration variables (substituted in prompts)
+project_name: "Project Name - Phase 1 Retrospective"
+meeting_date: "YYYY-MM-DD"
+total_time_mins: 30
+num_topics: 2
+
+# Participants (adapt for your team structure)
+participants:
+  humans:
+    - Project Lead
+    - Project Coordinator
+  agents:
+    - Outcome Analyst
+    - Process Reviewer
+    - Meeting Summarizer
+
+# Topics (example structure, adapt for your retrospective)
+topics:
+  - "What Went Well"
+  - "What Needs Improvement"

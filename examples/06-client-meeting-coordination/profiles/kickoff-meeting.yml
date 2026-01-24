@@ -1,0 +1,26 @@
+# Primary profile: fully configured kickoff meeting
+
+mode: kickoff
+
+# Configuration variables (substituted in prompts)
+project_name: "SaaS Dashboard Project"
+meeting_date: "2026-01-23"
+total_time_mins: 45
+num_topics: 3
+
+# Participants
+participants:
+  humans:
+    - Client Stakeholder
+    - Project Coordinator
+  agents:
+    - Requirements Clarifier
+    - Technical Advisor
+    - Design Advisor
+    - Meeting Summarizer
+
+# Topics (example structure, referenced in meeting-notes.md)
+topics:
+  - "Overall Concept"
+  - "Design Decisions"
+  - "Budget & Timeline"
