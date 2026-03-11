@@ -1,0 +1,181 @@
+.TH PPC 1 "March 2026" "ppc v0.3.1" "Prompt Policy Compiler"
+.SH NAME
+ppc \- compile Markdown behavior modules into deterministic prompts
+.SH SYNOPSIS
+.B ppc
+.I <subcommand>
+.RI [ flags ]
+.SH DESCRIPTION
+PPC (Prompt Policy Compiler) compiles small Markdown behavior modules into a single deterministic prompt. It is designed for composing agent behavior policies from modular, version-controlled files.
+.PP
+Output is written to stdout by default. Same inputs always produce identical output.
+.SH MODES
+PPC uses three modes aligned with the software lifecycle:
+.TP
+.B explore
+Research, answer questions, recommend approaches. Use for investigating codebases, evaluating tradeoffs, and making decisions without making changes.
+.TP
+.B build
+Implement features, write code, make changes. Use when you have a plan and need to execute it.
+.TP
+.B ship
+Release, deploy, finalize. Use for production releases and low-risk changes. Automatically applies conservative defaults.
+.SH SUBCOMMANDS
+.TP
+.B ppc explore \fR[\fIflags\fR]
+Generate prompt for exploration mode.
+.TP
+.B ppc build \fR[\fIflags\fR]
+Generate prompt for build mode.
+.TP
+.B ppc ship \fR[\fIflags\fR]
+Generate prompt for ship mode.
+.TP
+.B ppc doctor \fR[\fIflags\fR]
+Validate module structure, dependencies, and tag rules.
+.SH GLOBAL FLAGS
+.TP
+.B \-\-list
+List all available modules.
+.TP
+.B \-\-version
+Show version information.
+.TP
+.B \-\-help
+Show help message.
+.SH MODE FLAGS
+These flags apply to \fBexplore\fR, \fBbuild\fR, and \fBship\fR:
+.TP
+.BI \-\-conservative
+Include conservative trait (boring, stable).
+.TP
+.BI \-\-creative
+Include creative trait (novelty encouraged).
+.TP
+.BI \-\-terse
+Include terse trait (brief, concise).
+.TP
+.BI \-\-verbose
+Include verbose trait (detailed, expansive).
+.TP
+.BI \-\-revisions \ N
+Enable revision policy with budget N.
+.TP
+.BI \-\-contract \ TYPE
+Output contract: \fIcode\fR or \fImarkdown\fR (default: markdown).
+.TP
+.BI \-\-out \ PATH
+Write output to file instead of stdout.
+.TP
+.BI \-\-explain
+Print resolution steps to stderr.
+.TP
+.BI \-\-hash
+Prepend SHA256 prompt-id header to output.
+.TP
+.BI \-\-prompts \ DIR
+Prompts directory (default: prompts).
+.TP
+.BI \-\-vars \ PATH
+YAML or JSON file with variable definitions for {{placeholder}} substitution.
+.TP
+.BI \-\-profile \ NAME
+Load preset configuration from profiles directory.
+.SH DOCTOR FLAGS
+.TP
+.B \-\-strict
+Treat warnings as errors.
+.TP
+.B \-\-json
+Output machine-readable JSON.
+.TP
+.B \-\-stats
+Include module statistics in JSON output.
+.TP
+.B \-\-graph
+Output Graphviz DOT format.
+.TP
+.BI \-\-out \ PATH
+Write output to file.
+.SH VARIABLE SUBSTITUTION
+PPC supports Jinja2-style variable substitution in module content:
+.PP
+.B {{object.property}}
+.RS
+Replaced with value from \-\-vars file.
+.RE
+.PP
+Example vars.yaml:
+.EX
+goals:
+  target_return: 20.0
+  horizon: 24
+.EE
+.PP
+In module:
+.EX
+Target return: {{goals.target_return}}%
+.EE
+.PP
+Becomes:
+.EX
+Target return: 20.0%
+.EE
+.SH FILES
+.TP
+.I prompts/
+Directory containing Markdown modules.
+.TP
+.I prompts/rules.yml
+Defines exclusive groups for keyed tags.
+.TP
+.I prompts/base.md
+Base module included in all compilations.
+.TP
+.I prompts/modes/
+Mode-specific modules (explore.md, build.md, ship.md).
+.TP
+.I prompts/traits/
+Optional trait modules (conservative.md, creative.md, terse.md, verbose.md).
+.TP
+.I prompts/contracts/
+Output format contracts (markdown.md, code.md).
+.TP
+.I prompts/policies/
+Policy modules (revisions.md, self_score.md).
+.SH EXAMPLES
+Generate an exploration prompt:
+.EX
+ppc explore --creative --vars ./goals.yaml
+.EE
+.PP
+Generate a build prompt for code output:
+.EX
+ppc build --conservative --contract code --revisions 2
+.EE
+.PP
+Generate a ship prompt with hash:
+.EX
+ppc ship --terse --hash --out AGENTS.md
+.EE
+.PP
+Validate prompt repository:
+.EX
+ppc doctor --strict
+.EE
+.SH EXIT CODES
+.TP
+.B 0
+Success.
+.TP
+.B 1
+General error.
+.TP
+.B 2
+Invalid arguments or configuration error.
+.SH SEE ALSO
+.IR ppc-docs (7)
+.PP
+Full documentation: https://github.com/bkuri/ppc
+.SH AUTHOR
+Bernardo Kuri <github@bkuri.com>
