@@ -51,7 +51,7 @@ func Merge(prof *Profile, opts MergeOptions) (*compile.CompileOptions, error) {
 		contract = *opts.Contract
 	}
 
-	vars := make(map[string]string)
+	vars := make(map[string]any)
 	if prof.Vars != nil {
 		for k, v := range prof.Vars {
 			vars[k] = v

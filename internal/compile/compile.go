@@ -3,17 +3,17 @@ package compile
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 
 	"github.com/bkuri/ppc/internal/loader"
 	"github.com/bkuri/ppc/internal/model"
 	"github.com/bkuri/ppc/internal/render"
 	"github.com/bkuri/ppc/internal/resolver"
+	"github.com/bkuri/ppc/internal/substitute"
+	"gopkg.in/yaml.v3"
 )
 
-// Compile performs the full prompt compilation pipeline
-// Returns (output, metadata, error)
 func Compile(opts CompileOptions) (string, CompileMeta, interface{}) {
-	// Load modules and rules
 	modByID, err := loader.LoadModules(opts.PromptsDir)
 	if err != nil {
 		return "", CompileMeta{}, err
@@ -24,34 +24,37 @@ func Compile(opts CompileOptions) (string, CompileMeta, interface{}) {
 		return "", CompileMeta{}, err
 	}
 
-	// Build selected IDs from Mode, Contract, Traits
+	vars := substitute.Vars{}
+	if opts.VarsFile != "" {
+		vars, err = loadVarsFile(opts.VarsFile)
+		if err != nil {
+			return "", CompileMeta{}, err
+		}
+	}
+	for k, v := range opts.Vars {
+		vars[k] = v
+	}
+
 	selectedIDs := buildSelectedIDs(opts)
 
-	// Expand requires (transitive closure)
 	closureIDs, fromReq, err := resolver.ExpandRequires(selectedIDs, modByID)
 	if err != nil {
 		return "", CompileMeta{}, err
 	}
 
-	// Build module list with FromReq/Selected flags
 	mods, order := buildModuleList(closureIDs, fromReq, selectedIDs, modByID)
 
-	// Validate exclusive groups
 	if err := resolver.ValidateExclusiveGroups(rules, mods); err != nil {
 		return "", CompileMeta{}, err
 	}
 
-	// Sort modules by layer/priority/id
 	sortedMods := resolver.SortModules(mods)
 
-	// Render output (LF canonical, single trailing newline)
-	out := render.Render(sortedMods, opts.Vars)
+	out := render.Render(sortedMods, vars)
 
-	// Compute hash (of canonical output)
 	h := sha256.Sum256([]byte(out))
 	hash := hex.EncodeToString(h[:])
 
-	// Build metadata
 	meta := CompileMeta{
 		SelectedIDs: selectedIDs,
 		ClosureIDs:  closureIDs,
@@ -62,21 +65,28 @@ func Compile(opts CompileOptions) (string, CompileMeta, interface{}) {
 	return out, meta, nil
 }
 
-// buildSelectedIDs constructs the initial selection from options
+func loadVarsFile(path string) (substitute.Vars, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var vars substitute.Vars
+	if err := yaml.Unmarshal(data, &vars); err != nil {
+		return nil, err
+	}
+	return vars, nil
+}
+
 func buildSelectedIDs(opts CompileOptions) []string {
 	selectedIDs := []string{
 		"base",
 		"modes/" + opts.Mode,
 		"contracts/" + opts.Contract,
 	}
-
-	// Traits already include "traits/" prefix (e.g., "traits/conservative")
 	selectedIDs = append(selectedIDs, opts.Traits...)
-
 	return selectedIDs
 }
 
-// buildModuleList populates modules with FromReq/Selected flags and extracts order
 func buildModuleList(
 	closureIDs []string,
 	fromReq map[string]bool,

@@ -184,6 +184,7 @@ Each mode subcommand supports:
 --explain               Print resolution details to stderr
 --hash                  Prepend SHA256 prompt-id header
 --prompts DIR           Prompts directory (default: prompts)
+--vars PATH             YAML/JSON file with variable definitions
 ```
 
 ## Layout

@@ -51,6 +51,7 @@ func runExplore(args []string, promptsDir string) {
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
 	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	varsFile := fs.String("vars", "", "path to YAML file with variable definitions")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -80,7 +81,7 @@ flags:`)
 		cfg = &defaults
 	}
 
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract, varsFile)
 	if err != nil {
 		dief("merge error: %v", err)
 	}
@@ -117,6 +118,7 @@ func runBuild(args []string, promptsDir string) {
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
 	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	varsFile := fs.String("vars", "", "path to YAML file with variable definitions")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -146,7 +148,7 @@ flags:`)
 		cfg = &defaults
 	}
 
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract, varsFile)
 	if err != nil {
 		dief("merge error: %v", err)
 	}
@@ -183,6 +185,7 @@ func runShip(args []string, promptsDir string) {
 	verbose := fs.Bool("verbose", false, "include traits/verbose")
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
 	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
+	varsFile := fs.String("vars", "", "path to YAML file with variable definitions")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -212,7 +215,7 @@ flags:`)
 		cfg = &defaults
 	}
 
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract, varsFile)
 	if err != nil {
 		dief("merge error: %v", err)
 	}

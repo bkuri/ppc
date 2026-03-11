@@ -8,11 +8,11 @@ import (
 )
 
 type Profile struct {
-	Mode      string            `yaml:"mode"`
-	Contract  string            `yaml:"contract"`
-	Revisions *int              `yaml:"revisions,omitempty"`
-	Traits    []string          `yaml:"traits,omitempty"`
-	Vars      map[string]string `yaml:"vars,omitempty"`
+	Mode      string         `yaml:"mode"`
+	Contract  string         `yaml:"contract"`
+	Revisions *int           `yaml:"revisions,omitempty"`
+	Traits    []string       `yaml:"traits,omitempty"`
+	Vars      map[string]any `yaml:"vars,omitempty"`
 }
 
 func (p *Profile) Validate() error {

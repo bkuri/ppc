@@ -1,13 +1,13 @@
 // Package compile provides the core compilation API
 package compile
 
-// CompileOptions specifies the compilation parameters
 type CompileOptions struct {
-	Mode       string   // "explore", "build", "ship"
-	Contract   string   // "markdown", "code"
-	Traits     []string // e.g., "traits/conservative", "traits/terse"
+	Mode       string
+	Contract   string
+	Traits     []string
 	PromptsDir string
-	Vars       map[string]string // e.g., {"mode": "explore", "revisions": "1"}
+	VarsFile   string
+	Vars       map[string]any
 }
 
 // CompileMeta provides metadata about the compilation

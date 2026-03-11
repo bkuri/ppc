@@ -14,7 +14,8 @@ type ResolvedConfig struct {
 	Contract   string
 	Revisions  int
 	Traits     []string
-	Vars       map[string]string
+	Vars       map[string]any
+	VarsFile   string
 	PromptsDir string
 }
 
@@ -29,7 +30,8 @@ func NewResolvedConfigFromProfile(profileName string) (*ResolvedConfig, error) {
 		Contract:   profile.Contract,
 		Revisions:  -1,
 		Traits:     profile.Traits,
-		Vars:       map[string]string{},
+		Vars:       map[string]any{},
+		VarsFile:   "",
 		PromptsDir: "",
 	}
 
@@ -50,12 +52,13 @@ func NewResolvedConfigFromDefaults(mode string, contract string) ResolvedConfig 
 		Contract:   contract,
 		Revisions:  -1,
 		Traits:     []string{},
-		Vars:       map[string]string{},
+		Vars:       map[string]any{},
+		VarsFile:   "",
 		PromptsDir: "",
 	}
 }
 
-func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbose *bool, revisions *int, contract *string) (*ResolvedConfig, error) {
+func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbose *bool, revisions *int, contract, varsFile *string) (*ResolvedConfig, error) {
 	cfg := *c
 
 	if conservative != nil && *conservative {
@@ -76,6 +79,9 @@ func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbos
 	if contract != nil && *contract != "" {
 		cfg.Contract = *contract
 	}
+	if varsFile != nil && *varsFile != "" {
+		cfg.VarsFile = *varsFile
+	}
 
 	return &cfg, validateExclusiveGroups(cfg.Traits)
 }
@@ -86,6 +92,7 @@ func (c *ResolvedConfig) ToCompileOptions() compilepkg.CompileOptions {
 		Contract:   c.Contract,
 		Traits:     c.Traits,
 		PromptsDir: c.PromptsDir,
+		VarsFile:   c.VarsFile,
 		Vars:       c.Vars,
 	}
 }
