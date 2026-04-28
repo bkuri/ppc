@@ -25,6 +25,7 @@ digraph ppc {
     label="policies";
     "policies/revisions";
     "policies/self_score";
+    "policies/spec_context";
   }
 
   subgraph cluster_4_contracts {
@@ -48,6 +49,7 @@ digraph ppc {
   "traits/verbose" [style="dashed", color="red"];
   "policies/revisions" [style="dashed", color="red"];
   "policies/self_score" [style="dashed", color="red"];
+  "policies/spec_context" [style="dashed", color="red"];
   "guardrails/forbidden_patterns" [style="dashed", color="red"];
   "guardrails/snake_case" [style="dashed", color="red"];
   "guardrails/tdd" [style="dashed", color="red"];
