@@ -20,6 +20,7 @@ type ResolvedConfig struct {
 	Revisions  int
 	Traits     []string
 	Guardrails []string
+	Policies   []string
 	Vars       map[string]any
 	VarsFile   string
 	PromptsDir string
@@ -37,6 +38,7 @@ func NewResolvedConfigFromProfile(profileName string) (*ResolvedConfig, error) {
 		Revisions:  -1,
 		Traits:     profile.Traits,
 		Guardrails: []string{},
+		Policies:   []string{},
 		Vars:       map[string]any{},
 		VarsFile:   "",
 		PromptsDir: "",
@@ -60,13 +62,14 @@ func NewResolvedConfigFromDefaults(mode string, contract string) ResolvedConfig 
 		Revisions:  -1,
 		Traits:     []string{},
 		Guardrails: []string{},
+		Policies:   []string{},
 		Vars:       map[string]any{},
 		VarsFile:   "",
 		PromptsDir: "",
 	}
 }
 
-func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbose *bool, revisions *int, contract, varsFile, guardrails *string) (*ResolvedConfig, error) {
+func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbose *bool, revisions *int, contract, varsFile, guardrails, policies *string) (*ResolvedConfig, error) {
 	cfg := *c
 
 	if conservative != nil && *conservative {
@@ -81,8 +84,10 @@ func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbos
 	if verbose != nil && *verbose {
 		cfg.Traits = append(cfg.Traits, "traits/verbose")
 	}
-	if revisions != nil {
+	if revisions != nil && *revisions >= 0 {
 		cfg.Revisions = *revisions
+		cfg.Policies = append(cfg.Policies, "revisions")
+		cfg.Vars["revisions"] = *revisions
 	}
 	if contract != nil && *contract != "" {
 		cfg.Contract = *contract
@@ -92,6 +97,9 @@ func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbos
 	}
 	if guardrails != nil && *guardrails != "" {
 		cfg.Guardrails = parseGuardrails(*guardrails, cfg.PromptsDir)
+	}
+	if policies != nil && *policies != "" {
+		cfg.Policies = append(cfg.Policies, parseCSV(*policies)...)
 	}
 
 	return &cfg, validateExclusiveGroups(cfg.Traits)
@@ -132,6 +140,7 @@ func (c *ResolvedConfig) ToCompileOptions() compilepkg.CompileOptions {
 		Contract:   c.Contract,
 		Traits:     c.Traits,
 		Guardrails: c.Guardrails,
+		Policies:   c.Policies,
 		PromptsDir: c.PromptsDir,
 		VarsFile:   c.VarsFile,
 		Vars:       c.Vars,

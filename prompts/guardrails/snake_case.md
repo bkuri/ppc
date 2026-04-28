@@ -17,3 +17,5 @@ tags: [convention:naming]
 - **Invalid examples:** `userProfile.go`, `UserProfile.go`, `user-profile.go`, `user profile.go`
 - **Exception:** Files with a well-established upstream convention (e.g., `Dockerfile`, `Makefile`, `CMakeLists.txt`, `.gitignore`) are permitted.
 - **Exception:** Files inside `vendor/`, `node_modules/`, or other third-party directories.
+
+This policy is enforced by post-hoc filename scan at commit time. Violations block the commit.

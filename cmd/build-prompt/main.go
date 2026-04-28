@@ -20,6 +20,19 @@ func dief(format string, args ...any) {
 	os.Exit(2)
 }
 
+type varsFlag map[string]any
+
+func (v varsFlag) String() string { return "" }
+
+func (v varsFlag) Set(raw string) error {
+	k, val, ok := strings.Cut(raw, "=")
+	if !ok {
+		return fmt.Errorf("invalid var format %q (expected key=value)", raw)
+	}
+	v[strings.TrimSpace(k)] = strings.TrimSpace(val)
+	return nil
+}
+
 func parseCSV(s string) []string {
 	if s == "" {
 		return nil
@@ -75,7 +88,10 @@ func runMode(mode string, args []string, promptsDir string) int {
 	revisions := fs.Int("revisions", -1, "revision budget (enables policies/revisions)")
 	contract := fs.String("contract", "markdown", "contract module (code|markdown)")
 	guardrails := fs.String("guardrails", "", "comma-separated guardrail modules (e.g., tdd,snake_case; use \"all\" for all guardrails)")
+	policies := fs.String("policies", "", "comma-separated policy modules (e.g., revisions,self_score)")
 	varsFile := fs.String("vars", "", "path to YAML file with variable definitions")
+	cliVars := make(varsFlag)
+	fs.Var(&cliVars, "var", "key=value variable (repeatable, e.g. --var name=foo --var count=3)")
 	outPath := fs.String("out", "", "write output to file")
 	explain := fs.Bool("explain", false, "explain resolution steps to stderr")
 	withHash := fs.Bool("hash", false, "prepend prompt-id hash header")
@@ -103,9 +119,13 @@ func runMode(mode string, args []string, promptsDir string) int {
 	// Set PromptsDir before ApplyCLIOverrides so guardrails discovery works
 	cfg.PromptsDir = *proDir
 
-	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract, varsFile, guardrails)
+	cfg, err := cfg.ApplyCLIOverrides(conservative, creative, terse, verbose, revisions, contract, varsFile, guardrails, policies)
 	if err != nil {
 		dief("merge error: %v", err)
+	}
+
+	for k, v := range cliVars {
+		cfg.Vars[k] = v
 	}
 
 	opts := cfg.ToCompileOptions()
@@ -148,12 +168,13 @@ func printGlobalUsage() {
   --version  Show version information
   --help     Show this help message
 
- examples:
+  examples:
 	ppc explore --conservative --revisions 1 --contract markdown
 	ppc build --conservative --revisions 1 --contract code --explain
 	ppc ship --creative --out AGENTS.md --hash
 	ppc explore --guardrails tdd,snake_case
 	ppc build --guardrails all
+	ppc build --var spec_name=001 --var worktree_path=/tmp/foo --policies spec_context
 	ppc doctor --strict --json
   ppc lint --max-words 2000 --require-tags domain:*
 

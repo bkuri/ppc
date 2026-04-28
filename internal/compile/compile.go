@@ -90,6 +90,9 @@ func buildSelectedIDs(opts CompileOptions) []string {
 		"contracts/" + opts.Contract,
 	}
 	selectedIDs = append(selectedIDs, opts.Traits...)
+	for _, p := range opts.Policies {
+		selectedIDs = append(selectedIDs, "policies/"+p)
+	}
 	for _, g := range opts.Guardrails {
 		selectedIDs = append(selectedIDs, "guardrails/"+g)
 	}

@@ -6,6 +6,7 @@ type CompileOptions struct {
 	Contract   string
 	Traits     []string
 	Guardrails []string
+	Policies   []string
 	PromptsDir string
 	VarsFile   string
 	Vars       map[string]any

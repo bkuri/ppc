@@ -19,3 +19,5 @@ tags: [safety:system]
   - `wget | sh`, `curl | bash` (remote code execution without review)
 - **Always print the command with `--dry-run` first** for any mutating operation.
 - **When in doubt, ask the user for explicit approval** before proceeding.
+
+These commands are blocked at Tier 4 by the execution engine. Attempts to execute them will be rejected.

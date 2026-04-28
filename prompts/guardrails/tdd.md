@@ -15,3 +15,5 @@ tags: [discipline:strict]
 - **Every bug fix must include a regression test** that reproduces the bug before the fix.
 - **Integration/e2e tests** go in `tests/`. Unit tests live next to the code they test (`*_test.go`, `test_*.py`, etc.).
 - **Coverage minimums are defined in project config** — do not submit code that drops coverage.
+
+This policy is verified by post-hoc scan at commit time. Violations block the commit.
