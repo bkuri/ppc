@@ -12,16 +12,16 @@ import (
 )
 
 type Config struct {
-	MaxWords               int
-	MaxLines               int
-	MaxModules             int
-	MaxModuleWords         int
-	MaxDepth               int
-	RequireTags            []string
-	ForbidTags             []string
-	RequireFields          []string
-	ForbidEmptyBody        bool
-	ForbidContentPatterns  []ContentPattern
+	MaxWords              int
+	MaxLines              int
+	MaxModules            int
+	MaxModuleWords        int
+	MaxDepth              int
+	RequireTags           []string
+	ForbidTags            []string
+	RequireFields         []string
+	ForbidEmptyBody       bool
+	ForbidContentPatterns []ContentPattern
 }
 
 type ContentPattern struct {
@@ -44,11 +44,11 @@ type Result struct {
 
 func MergeConfig(file model.LintConfig, cli Config) Config {
 	merged := Config{
-		MaxWords:      coalesceInt(file.MaxWords, cli.MaxWords),
-		MaxLines:      coalesceInt(file.MaxLines, cli.MaxLines),
-		MaxModules:    coalesceInt(file.MaxModules, cli.MaxModules),
-		MaxModuleWords: coalesceInt(file.MaxModuleWords, cli.MaxModuleWords),
-		MaxDepth:      coalesceInt(file.MaxDepth, cli.MaxDepth),
+		MaxWords:        coalesceInt(file.MaxWords, cli.MaxWords),
+		MaxLines:        coalesceInt(file.MaxLines, cli.MaxLines),
+		MaxModules:      coalesceInt(file.MaxModules, cli.MaxModules),
+		MaxModuleWords:  coalesceInt(file.MaxModuleWords, cli.MaxModuleWords),
+		MaxDepth:        coalesceInt(file.MaxDepth, cli.MaxDepth),
 		ForbidEmptyBody: coalesceBool(file.ForbidEmptyBody, cli.ForbidEmptyBody),
 	}
 
@@ -272,18 +272,18 @@ func Run(promptsDir string, cfg Config) (*Result, error) {
 }
 
 type resolvedScope struct {
-	MaxModuleWords int
+	MaxModuleWords  int
 	ForbidEmptyBody bool
-	RequireFields  []string
-	ForbidTags     []string
+	RequireFields   []string
+	ForbidTags      []string
 }
 
 func resolveScope(modPath string, cfg Config) resolvedScope {
 	scoped := resolvedScope{
-		MaxModuleWords: cfg.MaxModuleWords,
+		MaxModuleWords:  cfg.MaxModuleWords,
 		ForbidEmptyBody: cfg.ForbidEmptyBody,
-		RequireFields:  cfg.RequireFields,
-		ForbidTags:     cfg.ForbidTags,
+		RequireFields:   cfg.RequireFields,
+		ForbidTags:      cfg.ForbidTags,
 	}
 
 	return scoped

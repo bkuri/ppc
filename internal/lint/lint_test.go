@@ -339,11 +339,11 @@ func containsHelper(s, substr string) bool {
 
 func TestMergeConfig(t *testing.T) {
 	file := model.LintConfig{
-		MaxWords:       2000,
-		MaxModuleWords: 500,
+		MaxWords:        2000,
+		MaxModuleWords:  500,
 		ForbidEmptyBody: true,
-		RequireTags:    []string{"risk:*"},
-		RequireFields:  []string{"desc"},
+		RequireTags:     []string{"risk:*"},
+		RequireFields:   []string{"desc"},
 		ForbidContentPatterns: []model.LintContentPattern{
 			{Match: "TODO", Reason: "no TODOs"},
 		},
@@ -558,10 +558,10 @@ func TestMatchPaths(t *testing.T) {
 
 func TestResolveScope(t *testing.T) {
 	cfg := Config{
-		MaxModuleWords: 1000,
+		MaxModuleWords:  1000,
 		ForbidEmptyBody: true,
-		RequireFields:  []string{"id"},
-		ForbidTags:     []string{"deprecated"},
+		RequireFields:   []string{"id"},
+		ForbidTags:      []string{"deprecated"},
 	}
 
 	scope := resolveScope("testdata/base.md", cfg)

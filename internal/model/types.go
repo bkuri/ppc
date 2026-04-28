@@ -15,27 +15,27 @@ type LintContentPattern struct {
 
 // LintScope defines path-scoped lint overrides
 type LintScope struct {
-	Paths          []string               `yaml:"paths"`
-	MaxModuleWords *int                   `yaml:"max_module_words,omitempty"`
-	ForbidEmpty    *bool                  `yaml:"forbid_empty_body,omitempty"`
-	RequireFields  []string               `yaml:"require_fields,omitempty"`
-	ForbidTags     []string               `yaml:"forbid_tags,omitempty"`
-	ContentPattern []LintContentPattern   `yaml:"forbid_content_patterns,omitempty"`
+	Paths          []string             `yaml:"paths"`
+	MaxModuleWords *int                 `yaml:"max_module_words,omitempty"`
+	ForbidEmpty    *bool                `yaml:"forbid_empty_body,omitempty"`
+	RequireFields  []string             `yaml:"require_fields,omitempty"`
+	ForbidTags     []string             `yaml:"forbid_tags,omitempty"`
+	ContentPattern []LintContentPattern `yaml:"forbid_content_patterns,omitempty"`
 }
 
 // LintConfig defines persistent lint configuration
 type LintConfig struct {
-	MaxWords               int                  `yaml:"max_words"`
-	MaxLines               int                  `yaml:"max_lines"`
-	MaxModules             int                  `yaml:"max_modules"`
-	MaxModuleWords         int                  `yaml:"max_module_words"`
-	MaxDepth               int                  `yaml:"max_depth"`
-	RequireTags            []string             `yaml:"require_tags"`
-	ForbidTags             []string             `yaml:"forbid_tags"`
-	RequireFields          []string             `yaml:"require_fields"`
-	ForbidEmptyBody        bool                 `yaml:"forbid_empty_body"`
-	ForbidContentPatterns  []LintContentPattern `yaml:"forbid_content_patterns"`
-	Scopes                 []LintScope          `yaml:"scopes"`
+	MaxWords              int                  `yaml:"max_words"`
+	MaxLines              int                  `yaml:"max_lines"`
+	MaxModules            int                  `yaml:"max_modules"`
+	MaxModuleWords        int                  `yaml:"max_module_words"`
+	MaxDepth              int                  `yaml:"max_depth"`
+	RequireTags           []string             `yaml:"require_tags"`
+	ForbidTags            []string             `yaml:"forbid_tags"`
+	RequireFields         []string             `yaml:"require_fields"`
+	ForbidEmptyBody       bool                 `yaml:"forbid_empty_body"`
+	ForbidContentPatterns []LintContentPattern `yaml:"forbid_content_patterns"`
+	Scopes                []LintScope          `yaml:"scopes"`
 }
 
 // Rules defines validation rules for modules
