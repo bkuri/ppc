@@ -102,7 +102,7 @@ func (c *ResolvedConfig) ApplyCLIOverrides(conservative, creative, terse, verbos
 		cfg.Policies = append(cfg.Policies, parseCSV(*policies)...)
 	}
 
-	return &cfg, validateExclusiveGroups(cfg.Traits)
+	return &cfg, validateExclusiveGroups(cfg.Traits, cfg.PromptsDir)
 }
 
 // parseGuardrails parses a comma-separated guardrail flag value.
@@ -147,13 +147,13 @@ func (c *ResolvedConfig) ToCompileOptions() compilepkg.CompileOptions {
 	}
 }
 
-func validateExclusiveGroups(traits []string) error {
-	modByID, errIf := loader.LoadModules("prompts")
+func validateExclusiveGroups(traits []string, promptsDir string) error {
+	modByID, errIf := loader.LoadModules(promptsDir)
 	if errIf != nil {
 		return fmt.Errorf("loading modules for exclusive group validation: %w", errIf)
 	}
 
-	rules, errIf := loader.LoadRules("prompts")
+	rules, errIf := loader.LoadRules(promptsDir)
 	if errIf != nil {
 		return fmt.Errorf("loading rules for exclusive group validation: %w", errIf)
 	}
